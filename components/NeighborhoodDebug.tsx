@@ -6,7 +6,11 @@ interface TestPointProps {
   lat: number;
 }
 
-const NeighborhoodDebug: React.FC = () => {
+interface NeighborhoodDebugProps {
+  onPointSelect?: (coordinates: [number, number]) => void;
+}
+
+const NeighborhoodDebug: React.FC<NeighborhoodDebugProps> = ({ onPointSelect }) => {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,6 +28,11 @@ const NeighborhoodDebug: React.FC = () => {
   const testNeighborhood = async (point: TestPointProps) => {
     setLoading(true);
     try {
+      // Notify parent component for map update
+      if (onPointSelect) {
+        onPointSelect([point.lng, point.lat]);
+      }
+      
       const response = await fetch(`/api/neighborhoods?lng=${point.lng}&lat=${point.lat}`);
       const data = await response.json();
       setResult({

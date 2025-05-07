@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as turf from '@turf/turf';
 import { findNeighborhood } from '@/lib/neighborhoodData';
 
-// We'll use the utility function from lib/neighborhoodData.ts
-
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const lng = parseFloat(searchParams.get('lng') || '0');
@@ -17,7 +15,11 @@ export async function GET(request: NextRequest) {
     // Find the neighborhood containing the point using our utility function
     const containingNeighborhood = await findNeighborhood(lng, lat);
     console.log('[API] Coordinates:', { lng, lat });
-    console.log('[API] Found neighborhood:', containingNeighborhood ? containingNeighborhood.properties.name : 'None');
+    console.log('[API] Found neighborhood:', 
+      containingNeighborhood 
+        ? (containingNeighborhood.properties.ntaname || containingNeighborhood.properties.name) 
+        : 'None'
+    );
 
     if (!containingNeighborhood) {
       return NextResponse.json(
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     // Return the neighborhood data
     return NextResponse.json({
-      neighborhood: containingNeighborhood.properties.name,
+      neighborhood: containingNeighborhood.properties.ntaname || containingNeighborhood.properties.name,
       data: containingNeighborhood
     });
   } catch (error) {

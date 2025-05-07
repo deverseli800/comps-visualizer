@@ -22,6 +22,15 @@ export default function Home() {
   
   const [neighborhood, setNeighborhood] = useState<string | null>(null);
   const [propertyCount, setPropertyCount] = useState<number | null>(null);
+  
+  // Function to handle debug tool point selection
+  const handleDebugPointSelect = (coordinates: [number, number]) => {
+    // Create a synthetic address object using debug coordinates
+    setSelectedAddress({
+      address: `Test Point: ${coordinates[0].toFixed(4)}, ${coordinates[1].toFixed(4)}`,
+      coordinates: coordinates
+    });
+  };
 
   // When an address is selected, fetch property count
   useEffect(() => {
@@ -84,7 +93,7 @@ export default function Home() {
                     <div className="mt-2">
                       <p className="text-sm"><span className="font-medium">Neighborhood:</span> {neighborhood}</p>
                       {propertyCount !== null && (
-                        <p className="text-sm"><span className="font-medium">Properties:</span> {propertyCount}</p>
+                        <p className="text-sm"><span className="font-medium">Properties:</span> {propertyCount} mock properties</p>
                       )}
                     </div>
                   )}
@@ -104,7 +113,7 @@ export default function Home() {
           
           {/* Neighborhood Debug Tool */}
           <div className="mt-6 mb-6">
-            <NeighborhoodDebug />
+            <NeighborhoodDebug onPointSelect={handleDebugPointSelect} />
           </div>
           
           {/* Legend and Info */}

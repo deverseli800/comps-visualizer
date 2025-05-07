@@ -80,8 +80,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Data Sources
 
-* **MapPLUTO Dataset**: Provides detailed land use and geographic data at the tax lot level
-* **Neighborhood Tabulation Areas (NTAs)**: Defines neighborhood boundaries in NYC
+* **NYC Open Data - 2020 Neighborhood Tabulation Areas (NTAs)**: Official NYC neighborhood boundaries
+* **Property Data**: Mock data generated for the proof of concept (would use MapPLUTO in production)
 
 ## Development Plan
 
@@ -90,7 +90,7 @@ This project is being developed incrementally:
 1. ✅ Basic Map Display
 2. ✅ Address Input and Geocoding
 3. ✅ Neighborhood Boundary Identification
-4. ✅ Load and Display Property Data
+4. ✅ Load and Display Property Data (using mock data)
 5. ⬜️ Interactive Property Details (Enhanced)
 6. ⬜️ Adjacent Neighborhoods (Optional)
 7. ⬜️ Performance Optimization

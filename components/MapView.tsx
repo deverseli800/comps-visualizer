@@ -29,8 +29,10 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   const [neighborhoodData, setNeighborhoodData] = useState<any>(null);
   const [propertyData, setPropertyData] = useState<any>(null);
 
+  // Map initialization
   useEffect(() => {
     if (mapContainer.current && !map.current) {
+      console.log('Creating map instance');
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v11',
@@ -41,7 +43,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
       map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
       
       map.current.on('load', () => {
-        console.log('Map initialized');
+        console.log('Map initialized and loaded');
         setMapInitialized(true);
       });
 
@@ -64,6 +66,63 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
       }
     };
   }, []);
+
+  // Function to update neighborhood boundaries
+  const updateNeighborhoodBoundary = (map: mapboxgl.Map, data: any) => {
+    console.log('Updating neighborhood boundary with data:', data.properties?.ntaname || data.properties?.name);
+    
+    // Remove existing layers
+    const sourceId = 'neighborhood-source';
+    const layerId = 'neighborhood-boundary';
+    const outlineId = 'neighborhood-outline';
+    
+    if (map.getLayer(layerId)) map.removeLayer(layerId);
+    if (map.getLayer(outlineId)) map.removeLayer(outlineId);
+    if (map.getSource(sourceId)) map.removeSource(sourceId);
+    
+    try {
+      // Create proper GeoJSON format if needed
+      const geojsonData = {
+        type: 'Feature',
+        geometry: data.geometry,
+        properties: data.properties || {}
+      };
+      
+      console.log('Using GeoJSON data with geometry type:', geojsonData.geometry.type);
+      
+      // Add new source
+      map.addSource(sourceId, {
+        type: 'geojson',
+        data: geojsonData
+      });
+      
+      // Add fill layer
+      map.addLayer({
+        id: layerId,
+        type: 'fill',
+        source: sourceId,
+        paint: {
+          'fill-color': '#0080ff',
+          'fill-opacity': 0.3
+        }
+      });
+      
+      // Add outline layer
+      map.addLayer({
+        id: outlineId,
+        type: 'line',
+        source: sourceId,
+        paint: {
+          'line-color': '#0080ff',
+          'line-width': 2
+        }
+      });
+      
+      console.log('Successfully added neighborhood boundary layers');
+    } catch (error) {
+      console.error('Error adding neighborhood layers:', error);
+    }
+  };
 
   // Update map when selected address changes
   useEffect(() => {
@@ -107,6 +166,16 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
         .then(data => {
           console.log('Neighborhood data received:', data);
           setNeighborhoodData(data.data);
+
+          // If map is initialized, update boundary immediately
+          if (map.current && mapInitialized && data.data) {
+            // Force the map to wait until it's fully initialized
+            setTimeout(() => {
+              if (map.current) {
+                updateNeighborhoodBoundary(map.current, data.data);
+              }
+            }, 100);
+          }
           
           // After getting neighborhood data, fetch properties
           return fetch(`/api/properties?lng=${lng}&lat=${lat}`);
@@ -126,70 +195,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
           setPropertyData(null);
         });
     }
-  }, [selectedAddress, setViewport]);
-
-  // Add or update neighborhood boundary on the map
-  useEffect(() => {
-    if (!map.current || !mapInitialized || !neighborhoodData) {
-      console.log('Not adding neighborhood layer:', { 
-        mapExists: !!map.current, 
-        mapInitialized, 
-        hasNeighborhoodData: !!neighborhoodData 
-      });
-      return;
-    }
-
-    console.log('Adding neighborhood boundary to map:', neighborhoodData);
-
-    try {
-      // Check if the neighborhood layer already exists
-      const neighborhoodLayerId = 'neighborhood-boundary';
-      const neighborhoodSourceId = 'neighborhood-source';
-
-      // Remove existing layer and source if they exist
-      if (map.current.getLayer(neighborhoodLayerId)) {
-        map.current.removeLayer(neighborhoodLayerId);
-      }
-      if (map.current.getLayer('neighborhood-outline')) {
-        map.current.removeLayer('neighborhood-outline');
-      }
-      if (map.current.getSource(neighborhoodSourceId)) {
-        map.current.removeSource(neighborhoodSourceId);
-      }
-
-      // Add new source and layer for the neighborhood boundary
-      map.current.addSource(neighborhoodSourceId, {
-        type: 'geojson',
-        data: neighborhoodData
-      });
-
-      map.current.addLayer({
-        id: neighborhoodLayerId,
-        type: 'fill',
-        source: neighborhoodSourceId,
-        paint: {
-          'fill-color': '#0080ff',
-          'fill-opacity': 0.3,
-          'fill-outline-color': '#0080ff'
-        }
-      });
-
-      // Add the outline layer
-      map.current.addLayer({
-        id: 'neighborhood-outline',
-        type: 'line',
-        source: neighborhoodSourceId,
-        paint: {
-          'line-color': '#0080ff',
-          'line-width': 2
-        }
-      });
-
-      console.log('Successfully added neighborhood boundary');
-    } catch (error) {
-      console.error('Error adding neighborhood boundary:', error);
-    }
-  }, [neighborhoodData, mapInitialized]);
+  }, [selectedAddress, mapInitialized, setViewport]);
 
   // Add or update property markers on the map
   useEffect(() => {
@@ -280,6 +286,18 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
       console.error('Error adding property points:', error);
     }
   }, [propertyData, mapInitialized]);
+
+  // Update neighborhood boundary when data or map changes
+  useEffect(() => {
+    if (map.current && mapInitialized && neighborhoodData) {
+      // Force the map to wait until it's fully initialized
+      setTimeout(() => {
+        if (map.current) {
+          updateNeighborhoodBoundary(map.current, neighborhoodData);
+        }
+      }, 200);
+    }
+  }, [neighborhoodData, mapInitialized]);
 
   return (
     <div>

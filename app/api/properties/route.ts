@@ -15,7 +15,11 @@ export async function GET(request: NextRequest) {
     // Find the neighborhood containing the point
     const neighborhood = await findNeighborhood(lng, lat);
     console.log('[API Properties] Coordinates:', { lng, lat });
-    console.log('[API Properties] Found neighborhood:', neighborhood ? neighborhood.properties.name : 'None');
+    console.log('[API Properties] Found neighborhood:', 
+      neighborhood 
+        ? (neighborhood.properties.ntaname || neighborhood.properties.name) 
+        : 'None'
+    );
 
     if (!neighborhood) {
       return NextResponse.json(
@@ -33,7 +37,7 @@ export async function GET(request: NextRequest) {
     const properties = generateMockProperties(neighborhood);
 
     return NextResponse.json({
-      neighborhood: neighborhood.properties.name,
+      neighborhood: neighborhood.properties.ntaname || neighborhood.properties.name,
       properties: properties
     });
   } catch (error) {
