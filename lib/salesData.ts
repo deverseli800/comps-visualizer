@@ -56,21 +56,35 @@ export async function getSalesData(): Promise<PropertySale[]> {
       const data = JSON.parse(fs.readFileSync(filePath, 'utf8')) as SalesGeoJSON;
       
       // Convert GeoJSON features to PropertySale objects
-      return data.features.map(feature => ({
-        id: feature.properties.id,
-        address: feature.properties.address,
-        neighborhood: feature.properties.neighborhood,
-        buildingClass: feature.properties.buildingClass,
-        price: feature.properties.price,
-        units: feature.properties.units,
-        residentialUnits: feature.properties.residentialUnits,
-        commercialUnits: feature.properties.commercialUnits,
-        yearBuilt: feature.properties.yearBuilt,
-        landSqFt: feature.properties.landSqFt,
-        grossSqFt: feature.properties.grossSqFt,
-        saleDate: feature.properties.saleDate,
-        location: feature.geometry.coordinates as [number, number]
-      }));
+      return data.features.map(feature => {
+        const props = feature.properties;
+        
+        // Convert Excel date numbers to JavaScript Date objects, if needed
+        let saleDate = props.saleDate;
+        if (typeof saleDate === 'number') {
+          // Excel dates are number of days since 1900-01-01 (with a leap year bug)
+          // Add days to the date 1899-12-30 to get the correct date
+          const excelEpoch = new Date(1899, 11, 30);
+          excelEpoch.setDate(excelEpoch.getDate() + saleDate);
+          saleDate = excelEpoch.toISOString();
+        }
+        
+        return {
+          id: props.id,
+          address: props.address,
+          neighborhood: props.neighborhood,
+          buildingClass: props.buildingClass,
+          price: props.price,
+          units: props.units,
+          residentialUnits: props.residentialUnits,
+          commercialUnits: props.commercialUnits,
+          yearBuilt: props.yearBuilt,
+          landSqFt: props.landSqFt,
+          grossSqFt: props.grossSqFt,
+          saleDate: saleDate,
+          location: feature.geometry.coordinates as [number, number]
+        };
+      });
     }
   } catch (error) {
     console.error('Error loading sales data:', error);
@@ -119,7 +133,7 @@ export function convertToGeoJSON(sales: PropertySale[]): SalesGeoJSON {
   };
 }
 
-// Mock geocoded data for development (to avoid excessive API calls)
+// Mock geocoded data for development (fallback when GeoJSON file is not available)
 export function getMockGeocodedSales(): PropertySale[] {
   // This data would typically come from a cache or database
   // For now, we'll just return a small sample with hardcoded coordinates

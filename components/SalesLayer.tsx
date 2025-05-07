@@ -30,32 +30,38 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
   selectedNeighborhood,
   onSaleSelect
 }) => {
-  const [salesData, setSalesData] = useState<PropertySale[]>([]);
+  const [salesData, setSalesData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch sales data when neighborhood changes
+  // Fetch sales data when component mounts or neighborhood changes
   useEffect(() => {
     async function fetchSalesData() {
+      if (!mapInitialized) return;
+      
       setLoading(true);
       setError(null);
       
       try {
-        let url = '/api/data/sales?format=json';
+        // Use the API endpoint that serves the data in GeoJSON format
+        let url = '/api/data/sales?format=geojson';
         if (selectedNeighborhood) {
           url += `&neighborhood=${encodeURIComponent(selectedNeighborhood)}`;
         }
         
+        console.log('Fetching sales data from:', url);
         const response = await fetch(url);
+        
         if (!response.ok) {
           throw new Error(`Failed to fetch sales data: ${response.status} ${response.statusText}`);
         }
         
         const data = await response.json();
+        console.log('Sales data loaded:', data.features?.length, 'properties');
         setSalesData(data);
       } catch (err) {
         console.error('Error fetching sales data:', err);
-        setError('Failed to load sales data');
+        setError(err instanceof Error ? err.message : 'Failed to load sales data');
       } finally {
         setLoading(false);
       }
@@ -68,7 +74,9 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
   
   // Add sales markers to the map
   useEffect(() => {
-    if (!map || !mapInitialized || !salesData.length) return;
+    if (!map || !mapInitialized || !salesData || !salesData.features?.length) {
+      return;
+    }
     
     // Source ID and layer ID for sales data
     const salesSourceId = 'sales-source';
@@ -82,40 +90,10 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
     if (map.getLayer(salesCountId)) map.removeLayer(salesCountId);
     if (map.getSource(salesSourceId)) map.removeSource(salesSourceId);
     
-    // Prepare GeoJSON data
-    const geojsonData = {
-      type: 'FeatureCollection',
-      features: salesData
-        .filter(sale => sale.location)
-        .map(sale => ({
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: sale.location as [number, number]
-          },
-          properties: {
-            id: sale.id,
-            address: sale.address,
-            neighborhood: sale.neighborhood,
-            buildingClass: sale.buildingClass,
-            price: sale.price,
-            units: sale.units,
-            residentialUnits: sale.residentialUnits,
-            commercialUnits: sale.commercialUnits,
-            yearBuilt: sale.yearBuilt,
-            landSqFt: sale.landSqFt,
-            grossSqFt: sale.grossSqFt,
-            saleDate: typeof sale.saleDate === 'string' 
-              ? sale.saleDate 
-              : (sale.saleDate as Date).toISOString()
-          }
-        }))
-    };
-    
     // Add source
     map.addSource(salesSourceId, {
       type: 'geojson',
-      data: geojsonData as any,
+      data: salesData,
       cluster: true,
       clusterMaxZoom: 14,
       clusterRadius: 50
@@ -191,15 +169,18 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
       const props = feature.properties;
       const coordinates = feature.geometry.coordinates.slice() as [number, number];
       
-      // Create popup content
+      // Format the price with a dollar sign and commas
       const formattedPrice = new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
         maximumFractionDigits: 0
       }).format(props.price);
       
-      const formattedDate = new Date(props.saleDate).toLocaleDateString();
+      // Format the sale date
+      const formattedDate = props.saleDate ? 
+        new Date(props.saleDate).toLocaleDateString() : 'Unknown';
       
+      // Create popup content
       const popupContent = `
         <div class="p-3">
           <h3 class="font-bold text-lg">${formattedPrice}</h3>
@@ -216,6 +197,16 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
             </div>
             <div>
               <span class="font-medium">Sale Date:</span> ${formattedDate}
+            </div>
+            <div class="col-span-2">
+              <span class="font-medium">Price Per Unit:</span> ${Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                maximumFractionDigits: 0
+              }).format(props.price / Math.max(1, props.units))}
+            </div>
+            <div class="col-span-2">
+              <span class="font-medium">Building Size:</span> ${props.grossSqFt?.toLocaleString() || 'N/A'} sq ft
             </div>
           </div>
         </div>
@@ -291,6 +282,7 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
       }
     });
     
+    // Return cleanup function to remove event handlers
     return () => {
       // Clean up event listeners when component unmounts
       if (map) {

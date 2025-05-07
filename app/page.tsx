@@ -21,37 +21,7 @@ export default function Home() {
   } | undefined>(undefined);
   
   const [neighborhood, setNeighborhood] = useState<string | null>(null);
-  const [propertyCount, setPropertyCount] = useState<number | null>(null);
   const [showSales, setShowSales] = useState<boolean>(true);
-
-  // When an address is selected, fetch property count
-  useEffect(() => {
-    if (selectedAddress && selectedAddress.coordinates) {
-      const [lng, lat] = selectedAddress.coordinates;
-      
-      // Fetch property data to get the count
-      fetch(`/api/properties?lng=${lng}&lat=${lat}`)
-        .then(response => {
-          if (response.ok) {
-            return response.json();
-          }
-          throw new Error('Failed to fetch property data');
-        })
-        .then(data => {
-          if (data.properties && data.properties.features) {
-            setPropertyCount(data.properties.features.length);
-            // Also set neighborhood from the response if available
-            if (data.neighborhood && !neighborhood) {
-              setNeighborhood(data.neighborhood);
-            }
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching property count:', error);
-          setPropertyCount(null);
-        });
-    }
-  }, [selectedAddress]);
 
   // Function to handle debug tool point selection
   const handleDebugPointSelect = (coordinates: [number, number]) => {
@@ -110,9 +80,6 @@ export default function Home() {
                   {neighborhood && (
                     <div className="mt-2">
                       <p className="text-sm"><span className="font-medium">Neighborhood:</span> {neighborhood}</p>
-                      {propertyCount !== null && (
-                        <p className="text-sm"><span className="font-medium">Properties:</span> {propertyCount} mock properties</p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -145,14 +112,10 @@ export default function Home() {
               </div>
               {showSales && (
                 <div className="flex items-center">
-                  <div className="w-4 h-4 rounded-full bg-yellow-500 border border-white mr-2"></div>
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500 border border-white mr-2"></div>
                   <span>Property Sales</span>
                 </div>
               )}
-              <div className="flex items-center">
-                <div className="w-4 h-4 rounded-full bg-red-500 border border-white mr-2"></div>
-                <span>Properties</span>
-              </div>
               <div className="flex items-center">
                 <div className="w-4 h-4 bg-blue-500 opacity-30 border border-blue-500 mr-2"></div>
                 <span>Neighborhood Boundary</span>
@@ -166,8 +129,8 @@ export default function Home() {
               an interactive map. Built with Next.js, Mapbox, and Node.js.
             </p>
             <div className="mt-2 text-sm text-gray-600">
-              <p><strong>Note:</strong> The application now displays recent property sales data for multifamily properties (Class C and D buildings), 
-              excluding condos and co-ops.</p>
+              <p><strong>Note:</strong> The application displays recent property sales data for multifamily properties (Class C and D buildings), 
+              excluding condos and co-ops. This data was geocoded using the Mapbox Geocoding API.</p>
             </div>
           </div>
         </div>

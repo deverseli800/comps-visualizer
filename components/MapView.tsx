@@ -45,8 +45,8 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   const [mapInitialized, setMapInitialized] = useState(false);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const [neighborhoodData, setNeighborhoodData] = useState<any>(null);
-  const [propertyData, setPropertyData] = useState<any>(null);
   const [selectedSale, setSelectedSale] = useState<PropertySale | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Map initialization
   useEffect(() => {
@@ -54,7 +54,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
       console.log('Creating map instance');
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v11',
+        style: 'mapbox://styles/mapbox/light-v11', // Use a light style for better readability
         center: [viewport.longitude, viewport.latitude],
         zoom: viewport.zoom
       });
@@ -122,7 +122,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
         source: sourceId,
         paint: {
           'fill-color': '#0080ff',
-          'fill-opacity': 0.3
+          'fill-opacity': 0.2
         }
       });
       
@@ -146,6 +146,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   // Update map when selected address changes
   useEffect(() => {
     if (map.current && selectedAddress) {
+      setIsLoading(true);
       const [lng, lat] = selectedAddress.coordinates;
       
       // Fly to the selected address
@@ -196,22 +197,12 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
             }, 100);
           }
           
-          // After getting neighborhood data, fetch properties
-          return fetch(`/api/properties?lng=${lng}&lat=${lat}`);
-        })
-        .then(response => {
-          if (response.ok) {
-            return response.json();
-          }
-          throw new Error('Failed to fetch property data');
-        })
-        .then(data => {
-          setPropertyData(data.properties);
+          setIsLoading(false);
         })
         .catch(error => {
-          console.error('Error fetching data:', error);
+          console.error('Error fetching neighborhood data:', error);
           setNeighborhoodData(null);
-          setPropertyData(null);
+          setIsLoading(false);
         });
     }
   }, [selectedAddress, mapInitialized]);
@@ -228,105 +219,29 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
     }
   }, [neighborhoodData, mapInitialized]);
 
-  // Add or update property markers on the map
-  useEffect(() => {
-    if (!map.current || !mapInitialized || !propertyData) {
-      console.log('Not adding property layer:', { 
-        mapExists: !!map.current, 
-        mapInitialized, 
-        hasPropertyData: !!propertyData 
-      });
-      return;
-    }
-
-    console.log('Adding property points to map:', propertyData);
-
-    try {
-      // Check if the property layer already exists
-      const propertyLayerId = 'property-points';
-      const propertySourceId = 'property-source';
-
-      // Remove existing layer and source if they exist
-      if (map.current.getLayer(propertyLayerId)) {
-        map.current.removeLayer(propertyLayerId);
-      }
-      if (map.current.getSource(propertySourceId)) {
-        map.current.removeSource(propertySourceId);
-      }
-
-      // Add new source and layer for the properties
-      map.current.addSource(propertySourceId, {
-        type: 'geojson',
-        data: propertyData
-      });
-
-      map.current.addLayer({
-        id: propertyLayerId,
-        type: 'circle',
-        source: propertySourceId,
-        paint: {
-          'circle-radius': 6,
-          'circle-color': '#FF0000',
-          'circle-stroke-width': 1,
-          'circle-stroke-color': '#FFFFFF'
-        }
-      });
-
-      // Add property popups when clicking on property points
-      map.current.on('click', propertyLayerId, (e) => {
-        if (!e.features || e.features.length === 0) return;
-
-        const feature = e.features[0];
-        const props = feature.properties;
-        const coordinates = feature.geometry.coordinates.slice();
-        
-        // Create popup content
-        const popupContent = `
-          <div class="p-2">
-            <h3 class="font-bold">${props.address}</h3>
-            <p>Building Type: ${props.buildingClass}</p>
-            <p>Year Built: ${props.yearBuilt}</p>
-            <p>Floors: ${props.numFloors}</p>
-            <p>Lot Area: ${props.lotArea} sq ft</p>
-            <p>Assessed Value: $${props.assessedValue.toLocaleString()}</p>
-          </div>
-        `;
-
-        // Create popup
-        new mapboxgl.Popup()
-          .setLngLat(coordinates)
-          .setHTML(popupContent)
-          .addTo(map.current);
-      });
-
-      // Change cursor to pointer when hovering over a property
-      map.current.on('mouseenter', propertyLayerId, () => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = 'pointer';
-        }
-      });
-
-      map.current.on('mouseleave', propertyLayerId, () => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = '';
-        }
-      });
-
-      console.log('Successfully added property points');
-    } catch (error) {
-      console.error('Error adding property points:', error);
-    }
-  }, [propertyData, mapInitialized]);
-
   // Handler for sale selection
   const handleSaleSelect = (sale: PropertySale) => {
     setSelectedSale(sale);
-    // Additional handling can be added here
+    console.log('Selected sale:', sale);
+    // Additional handling can be added here if needed
   };
 
   return (
-    <div>
+    <div className="relative">
       <div ref={mapContainer} className="map-container" />
+      
+      {isLoading && (
+        <div className="loading-indicator">
+          <div className="flex items-center">
+            <svg className="animate-spin h-5 w-5 mr-3 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Loading data...</span>
+          </div>
+        </div>
+      )}
+      
       {mapInitialized && showSales && (
         <SalesLayer 
           map={map.current} 

@@ -1,5 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSalesData, getMockGeocodedSales, convertToGeoJSON } from '@/lib/salesData';
+import fs from 'fs';
+import path from 'path';
+
+// Function to read the GeoJSON file
+async function readSalesGeoJSON() {
+  try {
+    const filePath = path.join(process.cwd(), 'data', 'manhattan_sales_geocoded.geojson');
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      console.error('GeoJSON file not found at:', filePath);
+      throw new Error('GeoJSON file not found');
+    }
+    
+    // Read and parse the file
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return data;
+  } catch (error) {
+    console.error('Error reading GeoJSON file:', error);
+    throw error;
+  }
+}
+
+// Function to convert GeoJSON features to simple sales objects
+function convertToSalesObjects(data: any) {
+  try {
+    if (!data.features || !Array.isArray(data.features)) {
+      console.error('Invalid GeoJSON data: no features array');
+      return [];
+    }
+    
+    return data.features.map((feature: any) => {
+      const props = feature.properties;
+      const coords = feature.geometry.coordinates;
+      
+      // Convert Excel date numbers to ISO date strings, if needed
+      let saleDate = props.saleDate;
+      if (typeof saleDate === 'number') {
+        // Excel dates are number of days since 1900-01-01 (with a leap year bug)
+        // Add days to the date 1899-12-30 to get the correct date
+        const excelEpoch = new Date(1899, 11, 30);
+        excelEpoch.setDate(excelEpoch.getDate() + saleDate);
+        saleDate = excelEpoch.toISOString().split('T')[0]; // YYYY-MM-DD
+      }
+      
+      return {
+        id: props.id,
+        address: props.address,
+        fullAddress: props.fullAddress,
+        neighborhood: props.neighborhood,
+        buildingClass: props.buildingClass,
+        price: props.price,
+        units: props.units,
+        residentialUnits: props.residentialUnits,
+        commercialUnits: props.commercialUnits,
+        yearBuilt: props.yearBuilt,
+        landSqFt: props.landSqFt,
+        grossSqFt: props.grossSqFt,
+        saleDate: saleDate,
+        location: coords
+      };
+    });
+  } catch (error) {
+    console.error('Error converting GeoJSON to sales objects:', error);
+    return [];
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,50 +79,56 @@ export async function GET(request: NextRequest) {
     const maxUnits = parseInt(searchParams.get('maxUnits') || '999', 10);
     const buildingClass = searchParams.get('buildingClass');
     
-    // For development, use mock geocoded data to avoid API calls
-    // In production, you would use the actual geocoded data from a database
-    let salesData = await getMockGeocodedSales();
+    // Read the geocoded sales data
+    const geojsonData = await readSalesGeoJSON();
     
-    // In production, you would use this code:
-    // let salesData = await getSalesData();
+    // Apply filters to the GeoJSON features if needed
+    let filteredFeatures = geojsonData.features;
     
-    // Apply filters
     if (neighborhood) {
-      salesData = salesData.filter(sale => 
-        sale.neighborhood.toLowerCase() === neighborhood.toLowerCase()
+      filteredFeatures = filteredFeatures.filter((feature: any) => 
+        feature.properties.neighborhood.toLowerCase() === neighborhood.toLowerCase()
       );
     }
     
     if (minPrice > 0 || maxPrice < 999999999) {
-      salesData = salesData.filter(sale => 
-        sale.price >= minPrice && sale.price <= maxPrice
+      filteredFeatures = filteredFeatures.filter((feature: any) => 
+        feature.properties.price >= minPrice && feature.properties.price <= maxPrice
       );
     }
     
     if (minUnits > 0 || maxUnits < 999) {
-      salesData = salesData.filter(sale => 
-        sale.units >= minUnits && sale.units <= maxUnits
+      filteredFeatures = filteredFeatures.filter((feature: any) => 
+        feature.properties.units >= minUnits && feature.properties.units <= maxUnits
       );
     }
     
     if (buildingClass) {
-      salesData = salesData.filter(sale => 
-        sale.buildingClass.startsWith(buildingClass)
+      filteredFeatures = filteredFeatures.filter((feature: any) => 
+        feature.properties.buildingClass.startsWith(buildingClass)
       );
     }
     
     // Return data in the requested format
     if (format === 'geojson') {
-      return NextResponse.json(convertToGeoJSON(salesData));
+      // Return data in GeoJSON format
+      return NextResponse.json({
+        type: 'FeatureCollection',
+        features: filteredFeatures
+      });
     } else {
-      return NextResponse.json(salesData);
+      // Return data as an array of sales objects
+      const salesObjects = convertToSalesObjects({
+        features: filteredFeatures
+      });
+      return NextResponse.json(salesObjects);
     }
   } catch (error) {
     console.error('Error serving sales data:', error);
     return NextResponse.json(
       { 
         error: 'Failed to load sales data',
-        message: 'An error occurred while loading the sales data.'
+        message: error instanceof Error ? error.message : 'An error occurred while loading the sales data.'
       }, 
       { status: 500 }
     );
