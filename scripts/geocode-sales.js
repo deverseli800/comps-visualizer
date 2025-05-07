@@ -12,10 +12,24 @@ const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
 const axios = require('axios');
-require('dotenv').config();
+const dotenv = require('dotenv');
 
-// Mapbox API token (should be in .env file)
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+// Load environment variables from .env.local instead of .env
+const envPath = path.resolve(__dirname, '..', '.env.local');
+dotenv.config({ path: envPath });
+
+// Mapbox API token (from .env.local file)
+const MAPBOX_TOKEN = "pk.eyJ1IjoiZGV2ZXJzZWxpODAwIiwiYSI6ImNtYTh0NnEzZzFoc3Iya285Mm5wZmRmOXUifQ.-X-WQD4UFusGNKQkvk79Lw"
+
+// Confirm token is loaded
+if (!MAPBOX_TOKEN) {
+  console.error('Error: Mapbox token not found in environment variables');
+  console.error(`Looked for .env.local at: ${envPath}`);
+  console.error('Please ensure NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN is set in .env.local');
+  process.exit(1);
+} else {
+  console.log('Mapbox token loaded successfully');
+}
 
 // Paths
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -41,6 +55,10 @@ async function geocodeAddress(address) {
     return null;
   } catch (error) {
     console.error(`Error geocoding address "${address}":`, error.message);
+    if (error.response) {
+      console.error(`Status code: ${error.response.status}`);
+      console.error(`Response data:`, error.response.data);
+    }
     return null;
   }
 }
