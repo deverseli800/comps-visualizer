@@ -5,8 +5,15 @@ import * as turf from '@turf/turf';
 
 // Generate a grid of property points within a given neighborhood boundary
 export function generateMockProperties(neighborhoodBoundary: any, density = 10) {
+  console.log('Generating mock properties for neighborhood:', 
+    neighborhoodBoundary ? neighborhoodBoundary.properties.name : 'undefined');
+  
   if (!neighborhoodBoundary || !neighborhoodBoundary.geometry) {
-    return [];
+    console.error('Invalid neighborhood boundary data');
+    return {
+      type: 'FeatureCollection',
+      features: []
+    };
   }
 
   const bbox = turf.bbox(neighborhoodBoundary);

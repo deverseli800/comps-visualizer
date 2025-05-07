@@ -16,12 +16,15 @@ export async function GET(request: NextRequest) {
   try {
     // Find the neighborhood containing the point using our utility function
     const containingNeighborhood = await findNeighborhood(lng, lat);
+    console.log('[API] Coordinates:', { lng, lat });
+    console.log('[API] Found neighborhood:', containingNeighborhood ? containingNeighborhood.properties.name : 'None');
 
     if (!containingNeighborhood) {
       return NextResponse.json(
         { 
           error: 'No neighborhood found for these coordinates',
-          message: 'The coordinates do not fall within any defined neighborhood boundary.'
+          message: 'The coordinates do not fall within any defined neighborhood boundary.',
+          coordinates: [lng, lat]
         }, 
         { status: 404 }
       );

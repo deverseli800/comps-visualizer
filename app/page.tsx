@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import MapView from '@/components/MapView';
 import Header from '@/components/Header';
 import AddressSearch from '@/components/AddressSearch';
+import Debug from '@/components/Debug';
+import NeighborhoodDebug from '@/components/NeighborhoodDebug';
 
 export default function Home() {
   const [viewport, setViewport] = useState({
@@ -100,6 +102,11 @@ export default function Home() {
             />
           </div>
           
+          {/* Neighborhood Debug Tool */}
+          <div className="mt-6 mb-6">
+            <NeighborhoodDebug />
+          </div>
+          
           {/* Legend and Info */}
           <div className="mt-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
             <h2 className="text-lg font-medium mb-2">Map Legend</h2>
@@ -131,6 +138,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <Debug />
     </main>
   );
 }

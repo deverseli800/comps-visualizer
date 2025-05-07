@@ -69,6 +69,8 @@ const AddressSearch: React.FC<AddressSearchProps> = ({ onAddressSelect }) => {
     
     try {
       // Fetch neighborhood data based on coordinates
+      console.log('Selected address coordinates:', coordinates);
+      console.log('Sending coordinates to API:', `lng=${coordinates[0]}&lat=${coordinates[1]}`);
       const response = await fetch(
         `/api/neighborhoods?lng=${coordinates[0]}&lat=${coordinates[1]}`
       );

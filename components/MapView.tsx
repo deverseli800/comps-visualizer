@@ -41,6 +41,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
       map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
       
       map.current.on('load', () => {
+        console.log('Map initialized');
         setMapInitialized(true);
       });
 
@@ -94,14 +95,17 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
       });
 
       // Fetch neighborhood data
+      console.log('Fetching neighborhood data for:', [lng, lat]);
       fetch(`/api/neighborhoods?lng=${lng}&lat=${lat}`)
         .then(response => {
+          console.log('Neighborhood API response status:', response.status);
           if (response.ok) {
             return response.json();
           }
-          throw new Error('Failed to fetch neighborhood data');
+          throw new Error(`Failed to fetch neighborhood data: ${response.status}`);
         })
         .then(data => {
+          console.log('Neighborhood data received:', data);
           setNeighborhoodData(data.data);
           
           // After getting neighborhood data, fetch properties
@@ -126,128 +130,155 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
 
   // Add or update neighborhood boundary on the map
   useEffect(() => {
-    if (!map.current || !mapInitialized || !neighborhoodData) return;
-
-    // Check if the neighborhood layer already exists
-    const neighborhoodLayerId = 'neighborhood-boundary';
-    const neighborhoodSourceId = 'neighborhood-source';
-
-    // Remove existing layer and source if they exist
-    if (map.current.getLayer(neighborhoodLayerId)) {
-      map.current.removeLayer(neighborhoodLayerId);
-    }
-    if (map.current.getSource(neighborhoodSourceId)) {
-      map.current.removeSource(neighborhoodSourceId);
+    if (!map.current || !mapInitialized || !neighborhoodData) {
+      console.log('Not adding neighborhood layer:', { 
+        mapExists: !!map.current, 
+        mapInitialized, 
+        hasNeighborhoodData: !!neighborhoodData 
+      });
+      return;
     }
 
-    // Add new source and layer for the neighborhood boundary
-    map.current.addSource(neighborhoodSourceId, {
-      type: 'geojson',
-      data: neighborhoodData
-    });
+    console.log('Adding neighborhood boundary to map:', neighborhoodData);
 
-    map.current.addLayer({
-      id: neighborhoodLayerId,
-      type: 'fill',
-      source: neighborhoodSourceId,
-      paint: {
-        'fill-color': '#0080ff',
-        'fill-opacity': 0.3,
-        'fill-outline-color': '#0080ff'
+    try {
+      // Check if the neighborhood layer already exists
+      const neighborhoodLayerId = 'neighborhood-boundary';
+      const neighborhoodSourceId = 'neighborhood-source';
+
+      // Remove existing layer and source if they exist
+      if (map.current.getLayer(neighborhoodLayerId)) {
+        map.current.removeLayer(neighborhoodLayerId);
       }
-    });
-
-    // Add the outline layer
-    if (map.current.getLayer('neighborhood-outline')) {
-      map.current.removeLayer('neighborhood-outline');
-    }
-
-    map.current.addLayer({
-      id: 'neighborhood-outline',
-      type: 'line',
-      source: neighborhoodSourceId,
-      paint: {
-        'line-color': '#0080ff',
-        'line-width': 2
+      if (map.current.getLayer('neighborhood-outline')) {
+        map.current.removeLayer('neighborhood-outline');
       }
-    });
+      if (map.current.getSource(neighborhoodSourceId)) {
+        map.current.removeSource(neighborhoodSourceId);
+      }
 
+      // Add new source and layer for the neighborhood boundary
+      map.current.addSource(neighborhoodSourceId, {
+        type: 'geojson',
+        data: neighborhoodData
+      });
+
+      map.current.addLayer({
+        id: neighborhoodLayerId,
+        type: 'fill',
+        source: neighborhoodSourceId,
+        paint: {
+          'fill-color': '#0080ff',
+          'fill-opacity': 0.3,
+          'fill-outline-color': '#0080ff'
+        }
+      });
+
+      // Add the outline layer
+      map.current.addLayer({
+        id: 'neighborhood-outline',
+        type: 'line',
+        source: neighborhoodSourceId,
+        paint: {
+          'line-color': '#0080ff',
+          'line-width': 2
+        }
+      });
+
+      console.log('Successfully added neighborhood boundary');
+    } catch (error) {
+      console.error('Error adding neighborhood boundary:', error);
+    }
   }, [neighborhoodData, mapInitialized]);
 
   // Add or update property markers on the map
   useEffect(() => {
-    if (!map.current || !mapInitialized || !propertyData) return;
-
-    // Check if the property layer already exists
-    const propertyLayerId = 'property-points';
-    const propertySourceId = 'property-source';
-
-    // Remove existing layer and source if they exist
-    if (map.current.getLayer(propertyLayerId)) {
-      map.current.removeLayer(propertyLayerId);
-    }
-    if (map.current.getSource(propertySourceId)) {
-      map.current.removeSource(propertySourceId);
+    if (!map.current || !mapInitialized || !propertyData) {
+      console.log('Not adding property layer:', { 
+        mapExists: !!map.current, 
+        mapInitialized, 
+        hasPropertyData: !!propertyData 
+      });
+      return;
     }
 
-    // Add new source and layer for the properties
-    map.current.addSource(propertySourceId, {
-      type: 'geojson',
-      data: propertyData
-    });
+    console.log('Adding property points to map:', propertyData);
 
-    map.current.addLayer({
-      id: propertyLayerId,
-      type: 'circle',
-      source: propertySourceId,
-      paint: {
-        'circle-radius': 6,
-        'circle-color': '#FF0000',
-        'circle-stroke-width': 1,
-        'circle-stroke-color': '#FFFFFF'
+    try {
+      // Check if the property layer already exists
+      const propertyLayerId = 'property-points';
+      const propertySourceId = 'property-source';
+
+      // Remove existing layer and source if they exist
+      if (map.current.getLayer(propertyLayerId)) {
+        map.current.removeLayer(propertyLayerId);
       }
-    });
-
-    // Add property popups when clicking on property points
-    map.current.on('click', propertyLayerId, (e) => {
-      if (!e.features || e.features.length === 0) return;
-
-      const feature = e.features[0];
-      const props = feature.properties;
-      const coordinates = feature.geometry.coordinates.slice();
-      
-      // Create popup content
-      const popupContent = `
-        <div class="p-2">
-          <h3 class="font-bold">${props.address}</h3>
-          <p>Building Type: ${props.buildingClass}</p>
-          <p>Year Built: ${props.yearBuilt}</p>
-          <p>Floors: ${props.numFloors}</p>
-          <p>Lot Area: ${props.lotArea} sq ft</p>
-          <p>Assessed Value: $${props.assessedValue.toLocaleString()}</p>
-        </div>
-      `;
-
-      // Create popup
-      new mapboxgl.Popup()
-        .setLngLat(coordinates)
-        .setHTML(popupContent)
-        .addTo(map.current);
-    });
-
-    // Change cursor to pointer when hovering over a property
-    map.current.on('mouseenter', propertyLayerId, () => {
-      if (map.current) {
-        map.current.getCanvas().style.cursor = 'pointer';
+      if (map.current.getSource(propertySourceId)) {
+        map.current.removeSource(propertySourceId);
       }
-    });
 
-    map.current.on('mouseleave', propertyLayerId, () => {
-      if (map.current) {
-        map.current.getCanvas().style.cursor = '';
-      }
-    });
+      // Add new source and layer for the properties
+      map.current.addSource(propertySourceId, {
+        type: 'geojson',
+        data: propertyData
+      });
 
+      map.current.addLayer({
+        id: propertyLayerId,
+        type: 'circle',
+        source: propertySourceId,
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#FF0000',
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#FFFFFF'
+        }
+      });
+
+      // Add property popups when clicking on property points
+      map.current.on('click', propertyLayerId, (e) => {
+        if (!e.features || e.features.length === 0) return;
+
+        const feature = e.features[0];
+        const props = feature.properties;
+        const coordinates = feature.geometry.coordinates.slice();
+        
+        // Create popup content
+        const popupContent = `
+          <div class="p-2">
+            <h3 class="font-bold">${props.address}</h3>
+            <p>Building Type: ${props.buildingClass}</p>
+            <p>Year Built: ${props.yearBuilt}</p>
+            <p>Floors: ${props.numFloors}</p>
+            <p>Lot Area: ${props.lotArea} sq ft</p>
+            <p>Assessed Value: $${props.assessedValue.toLocaleString()}</p>
+          </div>
+        `;
+
+        // Create popup
+        new mapboxgl.Popup()
+          .setLngLat(coordinates)
+          .setHTML(popupContent)
+          .addTo(map.current);
+      });
+
+      // Change cursor to pointer when hovering over a property
+      map.current.on('mouseenter', propertyLayerId, () => {
+        if (map.current) {
+          map.current.getCanvas().style.cursor = 'pointer';
+        }
+      });
+
+      map.current.on('mouseleave', propertyLayerId, () => {
+        if (map.current) {
+          map.current.getCanvas().style.cursor = '';
+        }
+      });
+
+      console.log('Successfully added property points');
+    } catch (error) {
+      console.error('Error adding property points:', error);
+    }
   }, [propertyData, mapInitialized]);
 
   return (

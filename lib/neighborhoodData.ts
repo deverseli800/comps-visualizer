@@ -14,6 +14,7 @@ export async function getNYCNeighborhoods() {
   // const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
   
   // For now, return a simplified version with just a few neighborhoods for testing
+  // These are very approximated boundaries
   return {
     type: 'FeatureCollection',
     features: [
@@ -27,11 +28,29 @@ export async function getNYCNeighborhoods() {
         geometry: {
           type: 'Polygon',
           coordinates: [[
-            [-73.9932, 40.7484],
-            [-73.9740, 40.7484],
-            [-73.9740, 40.7615],
-            [-73.9932, 40.7615],
-            [-73.9932, 40.7484]
+            [-74.0000, 40.7400],
+            [-73.9700, 40.7400],
+            [-73.9700, 40.7650],
+            [-74.0000, 40.7650],
+            [-74.0000, 40.7400]
+          ]]
+        }
+      },
+      {
+        type: 'Feature',
+        properties: {
+          name: 'Times Square',
+          ntacode: 'MN18',
+          borough: 'Manhattan'
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [-73.9900, 40.7500],
+            [-73.9800, 40.7500],
+            [-73.9800, 40.7600],
+            [-73.9900, 40.7600],
+            [-73.9900, 40.7500]
           ]]
         }
       },
@@ -45,11 +64,11 @@ export async function getNYCNeighborhoods() {
         geometry: {
           type: 'Polygon',
           coordinates: [[
-            [-74.0082, 40.7387],
-            [-73.9932, 40.7387],
-            [-73.9932, 40.7484],
-            [-74.0082, 40.7484],
-            [-74.0082, 40.7387]
+            [-74.0100, 40.7300],
+            [-73.9900, 40.7300],
+            [-73.9900, 40.7500],
+            [-74.0100, 40.7500],
+            [-74.0100, 40.7300]
           ]]
         }
       },
@@ -63,11 +82,47 @@ export async function getNYCNeighborhoods() {
         geometry: {
           type: 'Polygon',
           coordinates: [[
-            [-73.9696, 40.7737],
-            [-73.9464, 40.7737],
-            [-73.9464, 40.7851],
-            [-73.9696, 40.7851],
-            [-73.9696, 40.7737]
+            [-73.9700, 40.7700],
+            [-73.9400, 40.7700],
+            [-73.9400, 40.7900],
+            [-73.9700, 40.7900],
+            [-73.9700, 40.7700]
+          ]]
+        }
+      },
+      {
+        type: 'Feature',
+        properties: {
+          name: 'Upper West Side',
+          ntacode: 'MN41',
+          borough: 'Manhattan'
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [-73.9900, 40.7700],
+            [-73.9700, 40.7700],
+            [-73.9700, 40.7900],
+            [-73.9900, 40.7900],
+            [-73.9900, 40.7700]
+          ]]
+        }
+      },
+      {
+        type: 'Feature',
+        properties: {
+          name: 'Downtown',
+          ntacode: 'MN01',
+          borough: 'Manhattan'
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [-74.0100, 40.7000],
+            [-74.0000, 40.7000],
+            [-74.0000, 40.7200],
+            [-74.0100, 40.7200],
+            [-74.0100, 40.7000]
           ]]
         }
       },
@@ -81,15 +136,32 @@ export async function getNYCNeighborhoods() {
         geometry: {
           type: 'Polygon',
           coordinates: [[
-            [-73.9696, 40.7064],
-            [-73.9464, 40.7064],
-            [-73.9464, 40.7178],
-            [-73.9696, 40.7178],
-            [-73.9696, 40.7064]
+            [-73.9700, 40.7000],
+            [-73.9500, 40.7000],
+            [-73.9500, 40.7200],
+            [-73.9700, 40.7200],
+            [-73.9700, 40.7000]
+          ]]
+        }
+      },
+      {
+        type: 'Feature',
+        properties: {
+          name: 'Dumbo',
+          ntacode: 'BK38',
+          borough: 'Brooklyn'
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [-73.9950, 40.7000],
+            [-73.9800, 40.7000],
+            [-73.9800, 40.7100],
+            [-73.9950, 40.7100],
+            [-73.9950, 40.7000]
           ]]
         }
       }
-      // More neighborhoods would be added in production
     ]
   };
 }
@@ -98,10 +170,22 @@ export async function getNYCNeighborhoods() {
 export async function findNeighborhood(lng: number, lat: number) {
   const neighborhoods = await getNYCNeighborhoods();
   const point = turf.point([lng, lat]);
+  
+  console.log('[Lib] Checking point in neighborhoods:', { lng, lat });
+  console.log('[Lib] Total neighborhoods:', neighborhoods.features.length);
+  
+  // Debug: Test a specific point in a known neighborhood
+  const testPoint = turf.point([-73.98, 40.75]); // Times Square-ish
+  neighborhoods.features.forEach((neighborhood, index) => {
+    const isPointInNeighborhood = turf.booleanPointInPolygon(testPoint, neighborhood);
+    console.log(`[Lib] Test - Is point in ${neighborhood.properties.name}?`, isPointInNeighborhood);
+  });
 
   // Find the neighborhood containing the point
   const containingNeighborhood = neighborhoods.features.find(neighborhood => {
-    return turf.booleanPointInPolygon(point, neighborhood);
+    const result = turf.booleanPointInPolygon(point, neighborhood);
+    console.log(`[Lib] Is point in ${neighborhood.properties.name}?`, result);
+    return result;
   });
 
   return containingNeighborhood;
