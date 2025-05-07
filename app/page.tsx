@@ -22,15 +22,7 @@ export default function Home() {
   
   const [neighborhood, setNeighborhood] = useState<string | null>(null);
   const [propertyCount, setPropertyCount] = useState<number | null>(null);
-  
-  // Function to handle debug tool point selection
-  const handleDebugPointSelect = (coordinates: [number, number]) => {
-    // Create a synthetic address object using debug coordinates
-    setSelectedAddress({
-      address: `Test Point: ${coordinates[0].toFixed(4)}, ${coordinates[1].toFixed(4)}`,
-      coordinates: coordinates
-    });
-  };
+  const [showSales, setShowSales] = useState<boolean>(true);
 
   // When an address is selected, fetch property count
   useEffect(() => {
@@ -61,6 +53,15 @@ export default function Home() {
     }
   }, [selectedAddress]);
 
+  // Function to handle debug tool point selection
+  const handleDebugPointSelect = (coordinates: [number, number]) => {
+    // Create a synthetic address object using debug coordinates
+    setSelectedAddress({
+      address: `Test Point: ${coordinates[0].toFixed(4)}, ${coordinates[1].toFixed(4)}`,
+      coordinates: coordinates
+    });
+  };
+
   return (
     <main className="flex min-h-screen flex-col">
       <Header />
@@ -70,6 +71,23 @@ export default function Home() {
           <p className="mb-6">
             Enter a New York City address to visualize all properties within its neighborhood.
           </p>
+          
+          {/* Sales Data Toggle */}
+          <div className="mb-4 flex items-center">
+            <button
+              onClick={() => setShowSales(!showSales)}
+              className={`mr-2 px-4 py-2 rounded-lg ${
+                showSales 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-200 text-gray-800'
+              }`}
+            >
+              {showSales ? 'Hide Sales Data' : 'Show Sales Data'}
+            </button>
+            <span className="text-sm text-gray-600">
+              {showSales ? 'Showing recent property sales' : 'Property sales hidden'}
+            </span>
+          </div>
           
           {/* Address Input */}
           <div className="mb-6">
@@ -108,6 +126,7 @@ export default function Home() {
               viewport={viewport} 
               setViewport={setViewport} 
               selectedAddress={selectedAddress}
+              showSales={showSales}
             />
           </div>
           
@@ -124,6 +143,12 @@ export default function Home() {
                 <div className="w-4 h-4 rounded-full bg-red-500 mr-2"></div>
                 <span>Selected Address</span>
               </div>
+              {showSales && (
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full bg-yellow-500 border border-white mr-2"></div>
+                  <span>Property Sales</span>
+                </div>
+              )}
               <div className="flex items-center">
                 <div className="w-4 h-4 rounded-full bg-red-500 border border-white mr-2"></div>
                 <span>Properties</span>
@@ -141,8 +166,8 @@ export default function Home() {
               an interactive map. Built with Next.js, Mapbox, and Node.js.
             </p>
             <div className="mt-2 text-sm text-gray-600">
-              <p><strong>Note:</strong> The current implementation uses mock property data. In a production version, 
-              real property data from the MapPLUTO dataset would be integrated.</p>
+              <p><strong>Note:</strong> The application now displays recent property sales data for multifamily properties (Class C and D buildings), 
+              excluding condos and co-ops.</p>
             </div>
           </div>
         </div>

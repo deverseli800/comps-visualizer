@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import SalesLayer from './SalesLayer';
 
 // Using environment variable for Mapbox token
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
@@ -11,6 +12,22 @@ interface ViewportProps {
   zoom: number;
 }
 
+interface PropertySale {
+  id: string;
+  address: string;
+  neighborhood: string;
+  buildingClass: string;
+  price: number;
+  units: number;
+  residentialUnits: number;
+  commercialUnits: number;
+  yearBuilt: number;
+  landSqFt: number;
+  grossSqFt: number;
+  saleDate: string | Date;
+  location?: [number, number]; // [longitude, latitude]
+}
+
 interface MapViewProps {
   viewport: ViewportProps;
   setViewport: React.Dispatch<React.SetStateAction<ViewportProps>>;
@@ -19,15 +36,17 @@ interface MapViewProps {
     coordinates: [number, number];
     neighborhood?: string;
   };
+  showSales?: boolean;
 }
 
-const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddress }) => {
+const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddress, showSales = true }) => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapInitialized, setMapInitialized] = useState(false);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const [neighborhoodData, setNeighborhoodData] = useState<any>(null);
   const [propertyData, setPropertyData] = useState<any>(null);
+  const [selectedSale, setSelectedSale] = useState<PropertySale | null>(null);
 
   // Map initialization
   useEffect(() => {
@@ -166,7 +185,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
         .then(data => {
           console.log('Neighborhood data received:', data);
           setNeighborhoodData(data.data);
-
+          
           // If map is initialized, update boundary immediately
           if (map.current && mapInitialized && data.data) {
             // Force the map to wait until it's fully initialized
@@ -195,7 +214,19 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
           setPropertyData(null);
         });
     }
-  }, [selectedAddress, mapInitialized, setViewport]);
+  }, [selectedAddress, mapInitialized]);
+
+  // Update neighborhood boundary when data or map changes
+  useEffect(() => {
+    if (map.current && mapInitialized && neighborhoodData) {
+      // Force the map to wait until it's fully initialized
+      setTimeout(() => {
+        if (map.current) {
+          updateNeighborhoodBoundary(map.current, neighborhoodData);
+        }
+      }, 200);
+    }
+  }, [neighborhoodData, mapInitialized]);
 
   // Add or update property markers on the map
   useEffect(() => {
@@ -287,21 +318,23 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
     }
   }, [propertyData, mapInitialized]);
 
-  // Update neighborhood boundary when data or map changes
-  useEffect(() => {
-    if (map.current && mapInitialized && neighborhoodData) {
-      // Force the map to wait until it's fully initialized
-      setTimeout(() => {
-        if (map.current) {
-          updateNeighborhoodBoundary(map.current, neighborhoodData);
-        }
-      }, 200);
-    }
-  }, [neighborhoodData, mapInitialized]);
+  // Handler for sale selection
+  const handleSaleSelect = (sale: PropertySale) => {
+    setSelectedSale(sale);
+    // Additional handling can be added here
+  };
 
   return (
     <div>
       <div ref={mapContainer} className="map-container" />
+      {mapInitialized && showSales && (
+        <SalesLayer 
+          map={map.current} 
+          mapInitialized={mapInitialized}
+          selectedNeighborhood={neighborhoodData?.properties?.name || neighborhoodData?.properties?.ntaname}
+          onSaleSelect={handleSaleSelect}
+        />
+      )}
     </div>
   );
 };

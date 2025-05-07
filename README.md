@@ -47,6 +47,18 @@ A proof of concept web application that allows users to input a New York City ad
    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_mapbox_access_token_here
    ```
 
+4. Download and process the rolling sales data
+   * Download the Manhattan rolling sales Excel file from [NYC Department of Finance](https://www.nyc.gov/site/finance/property/property-rolling-sales-data.page)
+   * Place the Excel file in the `/data` directory with the name `rollingsales_manhattan.xlsx`
+   * Install dependencies for the geocoding script:
+     ```bash
+     npm install xlsx axios dotenv
+     ```
+   * Run the geocoding script to convert the data to GeoJSON:
+     ```bash
+     npm run geocode-sales
+     ```
+
 ### Development
 
 Run the development server:
@@ -81,7 +93,9 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ## Data Sources
 
 * **NYC Open Data - 2020 Neighborhood Tabulation Areas (NTAs)**: Official NYC neighborhood boundaries
-* **Property Data**: Mock data generated for the proof of concept (would use MapPLUTO in production)
+* **NYC Department of Finance - Rolling Sales Data**: Real property sales transactions in NYC
+  * Source: https://www.nyc.gov/site/finance/property/property-rolling-sales-data.page
+  * Place Excel files in the `/data` directory
 
 ## Development Plan
 
