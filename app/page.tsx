@@ -112,8 +112,8 @@ export default function Home() {
               </div>
               {showSales && (
                 <div className="flex items-center">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500 border border-white mr-2"></div>
-                  <span>Property Sales</span>
+                  <div className="w-12 h-4 rounded bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500 mr-2"></div>
+                  <span>Sales (Low → High Price)</span>
                 </div>
               )}
               <div className="flex items-center">
@@ -121,6 +121,15 @@ export default function Home() {
                 <span>Neighborhood Boundary</span>
               </div>
             </div>
+            
+            <h2 className="text-lg font-medium mt-4 mb-2">Instructions</h2>
+            <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+              <li>Enter an NYC address in the search box or use the Neighborhood Debug Tool</li>
+              <li>Toggle the "Show Sales Data" button to display or hide property sales</li>
+              <li>Click on sales markers to see detailed information</li>
+              <li>Try zooming in/out to see how the clustering works with many sales</li>
+              <li>Use the sidebar panel to view sales sorted by price and neighborhood statistics</li>
+            </ul>
             
             <h2 className="text-lg font-medium mt-4 mb-2">About This Project</h2>
             <p className="text-sm text-gray-600">

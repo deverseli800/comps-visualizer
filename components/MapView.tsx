@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import SalesLayer from './SalesLayer';
+import SalesSidebar from './SalesSidebar';
 
 // Using environment variable for Mapbox token
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
@@ -47,6 +48,8 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   const [neighborhoodData, setNeighborhoodData] = useState<any>(null);
   const [selectedSale, setSelectedSale] = useState<PropertySale | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showSidebar, setShowSidebar] = useState<boolean>(false);
+  const [currentNeighborhood, setCurrentNeighborhood] = useState<string | null>(null);
 
   // Map initialization
   useEffect(() => {
@@ -187,6 +190,15 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
           console.log('Neighborhood data received:', data);
           setNeighborhoodData(data.data);
           
+          // Set the current neighborhood name for the sidebar
+          const neighborhoodName = data.data?.properties?.ntaname || data.data?.properties?.name || null;
+          setCurrentNeighborhood(neighborhoodName);
+          
+          // Show the sidebar if we have a neighborhood
+          if (neighborhoodName) {
+            setShowSidebar(true);
+          }
+          
           // If map is initialized, update boundary immediately
           if (map.current && mapInitialized && data.data) {
             // Force the map to wait until it's fully initialized
@@ -202,6 +214,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
         .catch(error => {
           console.error('Error fetching neighborhood data:', error);
           setNeighborhoodData(null);
+          setCurrentNeighborhood(null);
           setIsLoading(false);
         });
     }
@@ -226,10 +239,40 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
     // Additional handling can be added here if needed
   };
 
+  // Toggle sidebar visibility
+  const toggleSidebar = () => {
+    setShowSidebar(!showSidebar);
+  };
+
   return (
     <div className="relative">
+      {/* Sidebar Toggle Button */}
+      {currentNeighborhood && (
+        <button 
+          onClick={toggleSidebar}
+          className="absolute top-4 right-4 z-20 bg-white rounded-full p-2 shadow-md"
+          title={showSidebar ? "Hide Sales List" : "Show Sales List"}
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-6 w-6" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            {showSidebar ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+      )}
+      
+      {/* Map Container */}
       <div ref={mapContainer} className="map-container" />
       
+      {/* Loading Indicator */}
       {isLoading && (
         <div className="loading-indicator">
           <div className="flex items-center">
@@ -242,14 +285,22 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
         </div>
       )}
       
+      {/* Sales Layer */}
       {mapInitialized && showSales && (
         <SalesLayer 
           map={map.current} 
           mapInitialized={mapInitialized}
-          selectedNeighborhood={neighborhoodData?.properties?.name || neighborhoodData?.properties?.ntaname}
+          selectedNeighborhood={currentNeighborhood}
           onSaleSelect={handleSaleSelect}
         />
       )}
+      
+      {/* Sales Sidebar */}
+      <SalesSidebar 
+        neighborhood={currentNeighborhood} 
+        isOpen={showSidebar && !!currentNeighborhood}
+        onClose={() => setShowSidebar(false)}
+      />
     </div>
   );
 };
