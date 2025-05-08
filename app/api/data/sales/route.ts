@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const format = searchParams.get('format') || 'json';
     const neighborhood = searchParams.get('neighborhood');
+    const includeAdjacent = searchParams.get('includeAdjacent') !== 'false'; // Default to true
     const minPrice = parseInt(searchParams.get('minPrice') || '0', 10);
     const maxPrice = parseInt(searchParams.get('maxPrice') || '999999999', 10);
     const minUnits = parseInt(searchParams.get('minUnits') || '0', 10);
@@ -84,18 +85,69 @@ export async function GET(request: NextRequest) {
 
     // Apply filters to the GeoJSON features if needed
     let filteredFeatures = geojsonData.features;
+    
+    // Get the adjacent neighborhoods if includeAdjacent is true
+    let adjacentNeighborhoods: string[] = [];
+    if (neighborhood && includeAdjacent) {
+      try {
+        // Extract neighborhood names from the URL parameter
+        // This may contain a comma-separated list of adjacent neighborhoods from the frontend
+        const adjacentParam = searchParams.get('adjacentNeighborhoods');
+        if (adjacentParam) {
+          adjacentNeighborhoods = adjacentParam.split(',').map(n => n.trim().toLowerCase());
+          console.log('Got adjacent neighborhoods from URL parameter:', adjacentNeighborhoods);
+        }
+      } catch (error) {
+        console.error('Error parsing adjacent neighborhoods:', error);
+      }
+    }
 
     if (neighborhood) {
       console.log('Filtering by neighborhood:', neighborhood);
       console.log('Sample neighborhoods in data:', filteredFeatures.slice(0, 5).map((f: any) => f.properties.neighborhood));
 
-      filteredFeatures = filteredFeatures.filter((feature: any) => {
-        const featureNeighborhood = feature.properties.neighborhood?.toLowerCase() || '';
-        const searchNeighborhood = neighborhood.toLowerCase();
-        return searchNeighborhood.includes(featureNeighborhood);
-      });
+      // If we're including adjacent neighborhoods, add them to our filter
+      if (includeAdjacent && adjacentNeighborhoods.length > 0) {
+        console.log(`Including ${adjacentNeighborhoods.length} adjacent neighborhoods in filter`);
+        
+        filteredFeatures = filteredFeatures.filter((feature: any) => {
+          const featureNeighborhood = feature.properties.neighborhood?.toLowerCase() || '';
+          const searchNeighborhood = neighborhood.toLowerCase();
+          
+          // Check if this feature is in the main neighborhood
+          const inMainNeighborhood = searchNeighborhood.includes(featureNeighborhood);
+          
+          // Check if this feature is in any of the adjacent neighborhoods
+          const inAdjacentNeighborhood = adjacentNeighborhoods.some(adj => 
+            featureNeighborhood.includes(adj) || adj.includes(featureNeighborhood)
+          );
+          
+          // Add a property to indicate if this is in the main neighborhood or adjacent
+          if (inMainNeighborhood) {
+            feature.properties.isMainNeighborhood = true;
+          } else if (inAdjacentNeighborhood) {
+            feature.properties.isMainNeighborhood = false;
+          }
+          
+          return inMainNeighborhood || inAdjacentNeighborhood;
+        });
+      } else {
+        // Original behavior - only filter by main neighborhood
+        filteredFeatures = filteredFeatures.filter((feature: any) => {
+          const featureNeighborhood = feature.properties.neighborhood?.toLowerCase() || '';
+          const searchNeighborhood = neighborhood.toLowerCase();
+          const inMainNeighborhood = searchNeighborhood.includes(featureNeighborhood);
+          
+          // Add a property to indicate this is in the main neighborhood
+          if (inMainNeighborhood) {
+            feature.properties.isMainNeighborhood = true;
+          }
+          
+          return inMainNeighborhood;
+        });
+      }
 
-      console.log(`Found ${filteredFeatures.length} properties in ${neighborhood}`);
+      console.log(`Found ${filteredFeatures.length} properties in ${neighborhood} ${includeAdjacent ? 'and adjacent neighborhoods' : ''}`);
     }
 
     if (minPrice > 0 || maxPrice < 999999999) {

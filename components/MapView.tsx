@@ -53,6 +53,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const [neighborhoods, setNeighborhoods] = useState<NeighborhoodInfo[]>([]);
   const [mainNeighborhood, setMainNeighborhood] = useState<string | null>(null);
+  const [adjacentNeighborhoodNames, setAdjacentNeighborhoodNames] = useState<string[]>([]);
   const [selectedSale, setSelectedSale] = useState<PropertySale | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showSidebar, setShowSidebar] = useState<boolean>(false);
@@ -224,6 +225,12 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
             }))
           ];
           
+          // Extract adjacent neighborhood names for the sales filter
+          const adjacentNames = adjacentNeighborhoodsData.map(
+            (feature: any) => feature.properties?.ntaname || feature.properties?.name
+          ).filter(Boolean);
+          setAdjacentNeighborhoodNames(adjacentNames);
+          
           setNeighborhoods(neighborhoodsArray);
           
           // Show the sidebar if we have a neighborhood
@@ -334,19 +341,21 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
         </div>
       )}
       
-      {/* Sales Layer for Main Neighborhood */}
+      {/* Sales Layer for Neighborhoods */}
       {mapInitialized && showSales && mainNeighborhood && (
         <SalesLayer 
           map={map.current} 
           mapInitialized={mapInitialized}
           selectedNeighborhood={mainNeighborhood}
+          adjacentNeighborhoods={adjacentNeighborhoodNames}
           onSaleSelect={handleSaleSelect}
         />
       )}
       
-      {/* Sales Sidebar for the Main Neighborhood */}
+      {/* Sales Sidebar for the Neighborhoods */}
       <SalesSidebar 
         neighborhood={mainNeighborhood} 
+        adjacentNeighborhoods={adjacentNeighborhoodNames}
         isOpen={showSidebar && !!mainNeighborhood}
         onClose={() => setShowSidebar(false)}
       />

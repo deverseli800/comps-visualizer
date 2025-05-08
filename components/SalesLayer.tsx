@@ -21,6 +21,7 @@ interface SalesLayerProps {
   map: mapboxgl.Map | null;
   mapInitialized: boolean;
   selectedNeighborhood?: string;
+  adjacentNeighborhoods?: string[];
   onSaleSelect?: (sale: PropertySale) => void;
 }
 
@@ -28,6 +29,7 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
   map, 
   mapInitialized, 
   selectedNeighborhood,
+  adjacentNeighborhoods = [],
   onSaleSelect
 }) => {
   const [salesData, setSalesData] = useState<any>(null);
@@ -48,6 +50,12 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
         if (selectedNeighborhood) {
           console.log('Selected neighborhood:', selectedNeighborhood);
           url += `&neighborhood=${encodeURIComponent(selectedNeighborhood)}`;
+          
+          // Include adjacent neighborhoods if available
+          if (adjacentNeighborhoods && adjacentNeighborhoods.length > 0) {
+            console.log('Including adjacent neighborhoods:', adjacentNeighborhoods);
+            url += `&includeAdjacent=true&adjacentNeighborhoods=${encodeURIComponent(adjacentNeighborhoods.join(','))}`;
+          }
         }
         
         console.log('Fetching sales data from:', url);
@@ -71,7 +79,7 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
     if (mapInitialized) {
       fetchSalesData();
     }
-  }, [mapInitialized, selectedNeighborhood]);
+  }, [mapInitialized, selectedNeighborhood, adjacentNeighborhoods]);
   
   // Add sales markers to the map
   useEffect(() => {
@@ -143,22 +151,28 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
     
     // Add individual sale points
     map.addLayer({
-      id: salesLayerId,
-      type: 'circle',
-      source: salesSourceId,
-      filter: ['!', ['has', 'point_count']],
-      paint: {
-        'circle-color': [
-          'interpolate',
-          ['linear'],
-          ['get', 'price'],
-          100000, '#2c7bb6',   // $100K or less: blue
-          1000000, '#ffffbf',  // $1M: yellow
-          5000000, '#d7191c'   // $5M+: red
-        ],
-        'circle-radius': 8,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#ffffff'
+    id: salesLayerId,
+    type: 'circle',
+    source: salesSourceId,
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+    'circle-color': [
+    'interpolate',
+    ['linear'],
+    ['get', 'price'],
+    100000, '#2c7bb6',   // $100K or less: blue
+    1000000, '#ffffbf',  // $1M: yellow
+    5000000, '#d7191c'   // $5M+: red
+    ],
+    'circle-radius': 8,
+    'circle-stroke-width': 2,
+    'circle-stroke-color': [
+        'case',
+          // Use different stroke colors based on neighborhood
+          ['==', ['get', 'isMainNeighborhood'], true],
+          '#ffffff', // White stroke for main neighborhood
+          '#15803d'  // Green stroke for adjacent neighborhoods
+        ]
       }
     });
     

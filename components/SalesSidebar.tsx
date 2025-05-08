@@ -31,12 +31,14 @@ interface SalesSidebarProps {
   neighborhood: string | null;
   isOpen: boolean;
   onClose: () => void;
+  adjacentNeighborhoods?: string[];
 }
 
 const SalesSidebar: React.FC<SalesSidebarProps> = ({ 
   neighborhood, 
   isOpen,
-  onClose
+  onClose,
+  adjacentNeighborhoods = []
 }) => {
   const [sales, setSales] = useState<PropertySale[]>([]);
   const [loading, setLoading] = useState(false);
@@ -56,7 +58,14 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({
       setError(null);
       
       try {
-        const url = `/api/data/sales?neighborhood=${encodeURIComponent(neighborhood)}`;
+        // Build the URL with the neighborhood and adjacent neighborhoods
+        let url = `/api/data/sales?neighborhood=${encodeURIComponent(neighborhood)}`;
+        
+        // Include adjacent neighborhoods if available
+        if (adjacentNeighborhoods && adjacentNeighborhoods.length > 0) {
+          url += `&includeAdjacent=true&adjacentNeighborhoods=${encodeURIComponent(adjacentNeighborhoods.join(','))}`;
+        }
+        
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -111,7 +120,7 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({
     }
     
     fetchSalesData();
-  }, [neighborhood]);
+  }, [neighborhood, adjacentNeighborhoods]);
   
   // Format currency values
   const formatCurrency = (value: number) => {
@@ -279,11 +288,19 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({
             ) : (
               <div className="space-y-4">
                 {sales.map(sale => (
-                  <div key={sale.id} className="border border-gray-200 rounded-md p-3 bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <div 
+                    key={sale.id} 
+                    className={`border ${sale.isMainNeighborhood === false ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'} rounded-md p-3 shadow-sm hover:shadow-md transition-shadow`}
+                  >
                     <div className="font-bold text-lg" style={{ color: getPriceColor(sale.price) }}>
                       {formatCurrency(sale.price)}
                     </div>
                     <div className="font-medium text-gray-800">{sale.address}</div>
+                    {sale.isMainNeighborhood === false && (
+                      <div className="text-xs text-green-700 bg-green-100 inline-block px-2 py-0.5 rounded-full mt-1 mb-1">
+                        Adjacent Neighborhood
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-2 text-xs">
                       <div className="text-gray-500">Building Class:</div>
                       <div className="text-gray-900" title={getBuildingClassDescription(sale.buildingClass)}>
