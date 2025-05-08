@@ -29,6 +29,12 @@ interface PropertySale {
   location?: [number, number]; // [longitude, latitude]
 }
 
+interface NeighborhoodInfo {
+  name: string;
+  feature: any;
+  isMain: boolean;
+}
+
 interface MapViewProps {
   viewport: ViewportProps;
   setViewport: React.Dispatch<React.SetStateAction<ViewportProps>>;
@@ -45,11 +51,11 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapInitialized, setMapInitialized] = useState(false);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
-  const [neighborhoodData, setNeighborhoodData] = useState<any>(null);
+  const [neighborhoods, setNeighborhoods] = useState<NeighborhoodInfo[]>([]);
+  const [mainNeighborhood, setMainNeighborhood] = useState<string | null>(null);
   const [selectedSale, setSelectedSale] = useState<PropertySale | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showSidebar, setShowSidebar] = useState<boolean>(false);
-  const [currentNeighborhood, setCurrentNeighborhood] = useState<string | null>(null);
 
   // Map initialization
   useEffect(() => {
@@ -90,60 +96,67 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   }, []);
 
   // Function to update neighborhood boundaries
-  const updateNeighborhoodBoundary = (map: mapboxgl.Map, data: any) => {
-    console.log('Updating neighborhood boundary with data:', data.properties?.ntaname || data.properties?.name);
+  const updateNeighborhoodBoundaries = (map: mapboxgl.Map, neighborhoods: NeighborhoodInfo[]) => {
+    // Remove existing layers and sources
+    neighborhoods.forEach((_, index) => {
+      const sourceId = `neighborhood-source-${index}`;
+      const layerId = `neighborhood-boundary-${index}`;
+      const outlineId = `neighborhood-outline-${index}`;
+      
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      if (map.getLayer(outlineId)) map.removeLayer(outlineId);
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    });
     
-    // Remove existing layers
-    const sourceId = 'neighborhood-source';
-    const layerId = 'neighborhood-boundary';
-    const outlineId = 'neighborhood-outline';
-    
-    if (map.getLayer(layerId)) map.removeLayer(layerId);
-    if (map.getLayer(outlineId)) map.removeLayer(outlineId);
-    if (map.getSource(sourceId)) map.removeSource(sourceId);
-    
-    try {
-      // Create proper GeoJSON format if needed
-      const geojsonData = {
-        type: 'Feature',
-        geometry: data.geometry,
-        properties: data.properties || {}
-      };
-      
-      console.log('Using GeoJSON data with geometry type:', geojsonData.geometry.type);
-      
-      // Add new source
-      map.addSource(sourceId, {
-        type: 'geojson',
-        data: geojsonData
-      });
-      
-      // Add fill layer
-      map.addLayer({
-        id: layerId,
-        type: 'fill',
-        source: sourceId,
-        paint: {
-          'fill-color': '#0080ff',
-          'fill-opacity': 0.2
-        }
-      });
-      
-      // Add outline layer
-      map.addLayer({
-        id: outlineId,
-        type: 'line',
-        source: sourceId,
-        paint: {
-          'line-color': '#0080ff',
-          'line-width': 2
-        }
-      });
-      
-      console.log('Successfully added neighborhood boundary layers');
-    } catch (error) {
-      console.error('Error adding neighborhood layers:', error);
-    }
+    // Add new layers for each neighborhood
+    neighborhoods.forEach((neighborhood, index) => {
+      try {
+        const sourceId = `neighborhood-source-${index}`;
+        const layerId = `neighborhood-boundary-${index}`;
+        const outlineId = `neighborhood-outline-${index}`;
+        const isMain = neighborhood.isMain;
+        
+        // Create proper GeoJSON format if needed
+        const geojsonData = {
+          type: 'Feature',
+          geometry: neighborhood.feature.geometry,
+          properties: neighborhood.feature.properties || {}
+        };
+        
+        // Add source
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: geojsonData
+        });
+        
+        // Add fill layer with different colors for main vs adjacent neighborhoods
+        map.addLayer({
+          id: layerId,
+          type: 'fill',
+          source: sourceId,
+          paint: {
+            'fill-color': isMain ? '#0080ff' : '#4ade80', // Blue for main, green for adjacent
+            'fill-opacity': isMain ? 0.2 : 0.1
+          }
+        });
+        
+        // Add outline layer
+        map.addLayer({
+          id: outlineId,
+          type: 'line',
+          source: sourceId,
+          paint: {
+            'line-color': isMain ? '#0080ff' : '#22c55e',
+            'line-width': isMain ? 2 : 1.5,
+            'line-dasharray': isMain ? [1, 0] : [2, 1] // Solid for main, dashed for adjacent
+          }
+        });
+        
+        console.log(`Added ${isMain ? 'main' : 'adjacent'} neighborhood: ${neighborhood.name}`);
+      } catch (error) {
+        console.error(`Error adding neighborhood layers for ${neighborhood.name}:`, error);
+      }
+    });
   };
 
   // Update map when selected address changes
@@ -155,7 +168,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
       // Fly to the selected address
       map.current.flyTo({
         center: [lng, lat],
-        zoom: 15,
+        zoom: 14, // Slightly zoomed out to show adjacent neighborhoods
         essential: true
       });
 
@@ -173,12 +186,12 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
       setViewport({
         longitude: lng,
         latitude: lat,
-        zoom: 15
+        zoom: 14
       });
 
-      // Fetch neighborhood data
+      // Fetch neighborhood data including adjacent neighborhoods
       console.log('Fetching neighborhood data for:', [lng, lat]);
-      fetch(`/api/neighborhoods?lng=${lng}&lat=${lat}`)
+      fetch(`/api/neighborhoods?lng=${lng}&lat=${lat}&adjacent=true`)
         .then(response => {
           console.log('Neighborhood API response status:', response.status);
           if (response.ok) {
@@ -188,54 +201,90 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
         })
         .then(data => {
           console.log('Neighborhood data received:', data);
-          setNeighborhoodData(data.data);
           
-          // Set the current neighborhood name for the sidebar
-          const neighborhoodName = data.data?.properties?.ntaname || data.data?.properties?.name || null;
-          setCurrentNeighborhood(neighborhoodName);
+          // Extract main neighborhood and adjacent neighborhoods
+          const mainNeighborhoodData = data.data;
+          const adjacentNeighborhoodsData = data.adjacentNeighborhoods || [];
+          
+          // Set the main neighborhood name
+          const mainName = mainNeighborhoodData?.properties?.ntaname || mainNeighborhoodData?.properties?.name || null;
+          setMainNeighborhood(mainName);
+          
+          // Create the neighborhoods array with main and adjacent
+          const neighborhoodsArray: NeighborhoodInfo[] = [
+            {
+              name: mainName,
+              feature: mainNeighborhoodData,
+              isMain: true
+            },
+            ...adjacentNeighborhoodsData.map((feature: any) => ({
+              name: feature.properties?.ntaname || feature.properties?.name,
+              feature: feature,
+              isMain: false
+            }))
+          ];
+          
+          setNeighborhoods(neighborhoodsArray);
           
           // Show the sidebar if we have a neighborhood
-          if (neighborhoodName) {
+          if (mainName) {
             setShowSidebar(true);
-          }
-          
-          // If map is initialized, update boundary immediately
-          if (map.current && mapInitialized && data.data) {
-            // Force the map to wait until it's fully initialized
-            setTimeout(() => {
-              if (map.current) {
-                updateNeighborhoodBoundary(map.current, data.data);
-              }
-            }, 100);
           }
           
           setIsLoading(false);
         })
         .catch(error => {
           console.error('Error fetching neighborhood data:', error);
-          setNeighborhoodData(null);
-          setCurrentNeighborhood(null);
+          setNeighborhoods([]);
+          setMainNeighborhood(null);
           setIsLoading(false);
         });
     }
   }, [selectedAddress, mapInitialized]);
 
-  // Update neighborhood boundary when data or map changes
+  // Update neighborhood boundaries when neighborhoods change
   useEffect(() => {
-    if (map.current && mapInitialized && neighborhoodData) {
-      // Force the map to wait until it's fully initialized
-      setTimeout(() => {
-        if (map.current) {
-          updateNeighborhoodBoundary(map.current, neighborhoodData);
+    if (map.current && mapInitialized && neighborhoods.length > 0) {
+      // Update the boundaries on the map
+      updateNeighborhoodBoundaries(map.current, neighborhoods);
+      
+      // If we have multiple neighborhoods, fit the map to show all of them
+      if (neighborhoods.length > 1) {
+        // Create a bounds object
+        const bounds = new mapboxgl.LngLatBounds();
+        
+        // Extend the bounds to include all neighborhood coordinates
+        neighborhoods.forEach(neighborhood => {
+          if (neighborhood.feature && neighborhood.feature.geometry) {
+            // Handle different geometry types
+            if (neighborhood.feature.geometry.type === 'Polygon') {
+              neighborhood.feature.geometry.coordinates[0].forEach((coord: [number, number]) => {
+                bounds.extend(coord);
+              });
+            } else if (neighborhood.feature.geometry.type === 'MultiPolygon') {
+              neighborhood.feature.geometry.coordinates.forEach((polygon: any) => {
+                polygon[0].forEach((coord: [number, number]) => {
+                  bounds.extend(coord);
+                });
+              });
+            }
+          }
+        });
+        
+        // Only fit bounds if we have a valid bounds object
+        if (!bounds.isEmpty()) {
+          map.current.fitBounds(bounds, {
+            padding: 50,
+            maxZoom: 15
+          });
         }
-      }, 200);
+      }
     }
-  }, [neighborhoodData, mapInitialized]);
+  }, [neighborhoods, mapInitialized]);
 
   // Handler for sale selection
   const handleSaleSelect = (sale: PropertySale) => {
     setSelectedSale(sale);
-    console.log('Selected sale:', sale);
     // Additional handling can be added here if needed
   };
 
@@ -247,7 +296,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   return (
     <div className="relative">
       {/* Sidebar Toggle Button */}
-      {currentNeighborhood && (
+      {mainNeighborhood && (
         <button 
           onClick={toggleSidebar}
           className="absolute top-4 right-4 z-20 bg-white rounded-full p-2 shadow-md"
@@ -285,22 +334,42 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
         </div>
       )}
       
-      {/* Sales Layer */}
-      {mapInitialized && showSales && (
+      {/* Sales Layer for Main Neighborhood */}
+      {mapInitialized && showSales && mainNeighborhood && (
         <SalesLayer 
           map={map.current} 
           mapInitialized={mapInitialized}
-          selectedNeighborhood={currentNeighborhood}
+          selectedNeighborhood={mainNeighborhood}
           onSaleSelect={handleSaleSelect}
         />
       )}
       
-      {/* Sales Sidebar */}
+      {/* Sales Sidebar for the Main Neighborhood */}
       <SalesSidebar 
-        neighborhood={currentNeighborhood} 
-        isOpen={showSidebar && !!currentNeighborhood}
+        neighborhood={mainNeighborhood} 
+        isOpen={showSidebar && !!mainNeighborhood}
         onClose={() => setShowSidebar(false)}
       />
+      
+      {/* Neighborhood Info Panel - show neighborhoods list */}
+      {neighborhoods.length > 0 && (
+        <div className="absolute bottom-4 left-4 bg-white p-3 rounded-lg shadow-lg max-w-sm z-10">
+          <h3 className="font-bold text-gray-700 mb-2">Neighborhoods</h3>
+          <ul className="text-sm space-y-1">
+            {neighborhoods.map((n, index) => (
+              <li key={index} className="flex items-center">
+                <span 
+                  className={`w-3 h-3 rounded-full mr-2 ${n.isMain ? 'bg-blue-500' : 'bg-green-500'}`}
+                ></span>
+                <span className={n.isMain ? 'font-semibold' : ''}>
+                  {n.name}
+                  {n.isMain ? ' (Selected)' : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };

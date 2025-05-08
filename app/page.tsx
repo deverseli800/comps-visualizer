@@ -39,7 +39,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl">
           <h1 className="text-2xl font-bold mb-4">NYC Neighborhood Property Visualizer</h1>
           <p className="mb-6">
-            Enter a New York City address to visualize all properties within its neighborhood.
+            Enter a New York City address to visualize properties within its neighborhood and adjacent areas.
           </p>
           
           {/* Sales Data Toggle */}
@@ -118,7 +118,11 @@ export default function Home() {
               )}
               <div className="flex items-center">
                 <div className="w-4 h-4 bg-blue-500 opacity-30 border border-blue-500 mr-2"></div>
-                <span>Neighborhood Boundary</span>
+                <span>Selected Neighborhood</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 bg-green-500 opacity-20 border border-green-500 mr-2"></div>
+                <span>Adjacent Neighborhoods</span>
               </div>
             </div>
             
@@ -129,13 +133,14 @@ export default function Home() {
               <li>Click on sales markers to see detailed information</li>
               <li>Try zooming in/out to see how the clustering works with many sales</li>
               <li>Use the sidebar panel to view sales sorted by price and neighborhood statistics</li>
+              <li>Both the selected neighborhood and adjacent neighborhoods will be displayed on the map</li>
             </ul>
             
             <h2 className="text-lg font-medium mt-4 mb-2">About This Project</h2>
             <p className="text-sm text-gray-600">
               This proof of concept demonstrates a web-based application that allows users to input a 
-              New York City address and visualize all properties within the corresponding neighborhood on 
-              an interactive map. Built with Next.js, Mapbox, and Node.js.
+              New York City address and visualize all properties within the corresponding neighborhood and 
+              adjacent neighborhoods on an interactive map. Built with Next.js, Mapbox, and Node.js.
             </p>
             <div className="mt-2 text-sm text-gray-600">
               <p><strong>Note:</strong> The application displays recent property sales data for multifamily properties (Class C and D buildings), 

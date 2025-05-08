@@ -6,13 +6,13 @@ import path from 'path';
 async function readSalesGeoJSON() {
   try {
     const filePath = path.join(process.cwd(), 'data', 'manhattan_sales_geocoded.geojson');
-    
+
     // Check if file exists
     if (!fs.existsSync(filePath)) {
       console.error('GeoJSON file not found at:', filePath);
       throw new Error('GeoJSON file not found');
     }
-    
+
     // Read and parse the file
     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     return data;
@@ -29,11 +29,11 @@ function convertToSalesObjects(data: any) {
       console.error('Invalid GeoJSON data: no features array');
       return [];
     }
-    
+
     return data.features.map((feature: any) => {
       const props = feature.properties;
       const coords = feature.geometry.coordinates;
-      
+
       // Convert Excel date numbers to ISO date strings, if needed
       let saleDate = props.saleDate;
       if (typeof saleDate === 'number') {
@@ -43,7 +43,7 @@ function convertToSalesObjects(data: any) {
         excelEpoch.setDate(excelEpoch.getDate() + saleDate);
         saleDate = excelEpoch.toISOString().split('T')[0]; // YYYY-MM-DD
       }
-      
+
       return {
         id: props.id,
         address: props.address,
@@ -78,37 +78,44 @@ export async function GET(request: NextRequest) {
     const minUnits = parseInt(searchParams.get('minUnits') || '0', 10);
     const maxUnits = parseInt(searchParams.get('maxUnits') || '999', 10);
     const buildingClass = searchParams.get('buildingClass');
-    
+
     // Read the geocoded sales data
     const geojsonData = await readSalesGeoJSON();
-    
+
     // Apply filters to the GeoJSON features if needed
     let filteredFeatures = geojsonData.features;
-    
+
     if (neighborhood) {
-      filteredFeatures = filteredFeatures.filter((feature: any) => 
-        feature.properties.neighborhood.toLowerCase() === neighborhood.toLowerCase()
-      );
+      console.log('Filtering by neighborhood:', neighborhood);
+      console.log('Sample neighborhoods in data:', filteredFeatures.slice(0, 5).map((f: any) => f.properties.neighborhood));
+
+      filteredFeatures = filteredFeatures.filter((feature: any) => {
+        const featureNeighborhood = feature.properties.neighborhood?.toLowerCase() || '';
+        const searchNeighborhood = neighborhood.toLowerCase();
+        return featureNeighborhood === searchNeighborhood;
+      });
+
+      console.log(`Found ${filteredFeatures.length} properties in ${neighborhood}`);
     }
-    
+
     if (minPrice > 0 || maxPrice < 999999999) {
-      filteredFeatures = filteredFeatures.filter((feature: any) => 
-        feature.properties.price >= minPrice && feature.properties.price <= maxPrice
+      filteredFeatures = filteredFeatures.filter((feature: any) =>
+          feature.properties.price >= minPrice && feature.properties.price <= maxPrice
       );
     }
-    
+
     if (minUnits > 0 || maxUnits < 999) {
-      filteredFeatures = filteredFeatures.filter((feature: any) => 
-        feature.properties.units >= minUnits && feature.properties.units <= maxUnits
+      filteredFeatures = filteredFeatures.filter((feature: any) =>
+          feature.properties.units >= minUnits && feature.properties.units <= maxUnits
       );
     }
-    
+
     if (buildingClass) {
-      filteredFeatures = filteredFeatures.filter((feature: any) => 
-        feature.properties.buildingClass.startsWith(buildingClass)
+      filteredFeatures = filteredFeatures.filter((feature: any) =>
+          feature.properties.buildingClass.startsWith(buildingClass)
       );
     }
-    
+
     // Return data in the requested format
     if (format === 'geojson') {
       // Return data in GeoJSON format
@@ -126,11 +133,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error serving sales data:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to load sales data',
-        message: error instanceof Error ? error.message : 'An error occurred while loading the sales data.'
-      }, 
-      { status: 500 }
+        {
+          error: 'Failed to load sales data',
+          message: error instanceof Error ? error.message : 'An error occurred while loading the sales data.'
+        },
+        { status: 500 }
     );
   }
 }

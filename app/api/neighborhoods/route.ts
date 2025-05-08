@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as turf from '@turf/turf';
-import { findNeighborhood } from '@/lib/neighborhoodData';
+import { findNeighborhood, findAdjacentNeighborhoods } from '@/lib/neighborhoodData';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const lng = parseFloat(searchParams.get('lng') || '0');
   const lat = parseFloat(searchParams.get('lat') || '0');
+  const includeAdjacent = searchParams.get('adjacent') !== 'false'; // Default to true
 
   if (isNaN(lng) || isNaN(lat)) {
     return NextResponse.json({ error: 'Invalid coordinates' }, { status: 400 });
@@ -32,10 +33,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Return the neighborhood data
+    // If adjacent neighborhoods are requested, find them
+    let adjacentNeighborhoods = [];
+    if (includeAdjacent) {
+      console.log('[API] Finding adjacent neighborhoods...');
+      adjacentNeighborhoods = await findAdjacentNeighborhoods(containingNeighborhood);
+      console.log(`[API] Found ${adjacentNeighborhoods.length} adjacent neighborhoods:`);
+      
+      // Log the names of adjacent neighborhoods for debugging
+      adjacentNeighborhoods.forEach((n, i) => {
+        console.log(`[API] Adjacent #${i+1}: ${n.properties.ntaname || n.properties.name}`);
+      });
+    }
+
+    // Return the neighborhood data with adjacent neighborhoods
     return NextResponse.json({
       neighborhood: containingNeighborhood.properties.ntaname || containingNeighborhood.properties.name,
-      data: containingNeighborhood
+      data: containingNeighborhood,
+      adjacentNeighborhoods: adjacentNeighborhoods
     });
   } catch (error) {
     console.error('Error finding neighborhood:', error);

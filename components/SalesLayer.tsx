@@ -46,6 +46,7 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
         // Use the API endpoint that serves the data in GeoJSON format
         let url = '/api/data/sales?format=geojson';
         if (selectedNeighborhood) {
+          console.log('Selected neighborhood:', selectedNeighborhood);
           url += `&neighborhood=${encodeURIComponent(selectedNeighborhood)}`;
         }
         
