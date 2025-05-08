@@ -56,91 +56,35 @@ export async function findNeighborhood(lng: number, lat: number) {
 }
 
 // Find adjacent neighborhoods to a given neighborhood - improved approach
-export async function findAdjacentNeighborhoods(neighborhood: any) {
+export async function findAdjacentNeighborhoods(neighborhood) {
   if (!neighborhood) return [];
-  
-  try {
-    const allNeighborhoods = await getNYCNeighborhoods();
-    const adjacentNeighborhoods = [];
-    
-    // Get the current neighborhood borough to narrow down search
-    const mainBorough = neighborhood.properties.boro_name || 
-                         neighborhood.properties.borough || '';
-    
-    // Get a buffer around the neighborhood to find potential neighbors
-    const buffer = turf.buffer(neighborhood, 0.001, { units: 'kilometers' });
-    
-    console.log(`[Lib] Searching for neighborhoods adjacent to: ${neighborhood.properties.ntaname || neighborhood.properties.name}`);
-    
-    // Find neighborhoods that intersect with our buffered area
-    for (const candidate of allNeighborhoods.features) {
-      // Skip if it's the same neighborhood
-      if (candidate.properties.ntacode === neighborhood.properties.ntacode) {
-        continue;
-      }
-      
-      // For efficiency, first check if it's in the same borough
-      const candidateBorough = candidate.properties.boro_name || 
-                               candidate.properties.borough || '';
-      
-      // Skip boroughs that aren't the same or adjacent
-      if (mainBorough && candidateBorough && mainBorough !== candidateBorough) {
-        // Allow Manhattan-Brooklyn, Manhattan-Queens, Brooklyn-Queens adjacency
-        // (Special cases for neighborhoods that border other boroughs)
-        const boroughPair = `${mainBorough}-${candidateBorough}`;
-        if (!['Manhattan-Brooklyn', 'Brooklyn-Manhattan', 
-               'Manhattan-Queens', 'Queens-Manhattan',
-               'Brooklyn-Queens', 'Queens-Brooklyn'].includes(boroughPair)) {
-          continue;
-        }
-      }
-      
-      try {
-        // Try a different approach - use distance to determine adjacency
-        const distance = turf.distance(
-          turf.center(neighborhood),
-          turf.center(candidate),
-          { units: 'kilometers' }
-        );
-        
-        // Consider neighborhoods within 2km as potentially adjacent
-        if (distance < 2) {
-          // Check for actual intersection of boundaries
-          const intersection = turf.intersect(neighborhood, candidate);
-          
-          // If there's any intersection, it's adjacent
-          if (intersection) {
-            adjacentNeighborhoods.push(candidate);
-            console.log(`[Lib] Found adjacent neighborhood: ${candidate.properties.ntaname || candidate.properties.name}`);
-          }
-        }
-      } catch (error) {
-        // Try a simpler method as fallback - just use a distance threshold
-        try {
-          const distance = turf.distance(
-            turf.center(neighborhood),
-            turf.center(candidate),
-            { units: 'kilometers' }
-          );
-          
-          // If centers are very close, consider them adjacent
-          // East Village to surrounding areas should be within this range
-          if (distance < 1) {
-            adjacentNeighborhoods.push(candidate);
-            console.log(`[Lib] Found nearby neighborhood: ${candidate.properties.ntaname || candidate.properties.name} (distance: ${distance.toFixed(2)}km)`);
-          }
-        } catch (innerError) {
-          console.error('Error calculating distance between neighborhoods:', innerError);
-        }
-      }
+
+  const all = (await getNYCNeighborhoods()).features;
+  const buffer = turf.buffer(neighborhood, 0.3, { units: 'kilometers' }); // 300 m
+
+  return all.filter(candidate => {
+    if (candidate.properties.ntacode === neighborhood.properties.ntacode) {
+      return false;
     }
-    
-    console.log(`[Lib] Found ${adjacentNeighborhoods.length} adjacent neighborhoods`);
-    return adjacentNeighborhoods;
-  } catch (error) {
-    console.error('Error finding adjacent neighborhoods:', error);
-    return [];
-  }
+
+    // 1) Perfect shared-boundary detection
+    if (turf.booleanTouches(neighborhood, candidate)) {
+      return true;
+    }
+
+    // 2) Buffer intersection to catch slight mismatches
+    if (turf.booleanIntersects(buffer, candidate)) {
+      return true;
+    }
+
+    // 3) Fallback by “centroid proximity”
+    const dist = turf.distance(
+        turf.center(neighborhood),
+        turf.center(candidate),
+        { units: 'kilometers' }
+    );
+    return dist < 5; // you can tune this
+  });
 }
 
 // Get all neighborhoods in a specific borough
