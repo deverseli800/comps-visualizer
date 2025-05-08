@@ -1,6 +1,25 @@
 import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
 
+interface ExtractedPropertyData {
+  capRate?: string;
+  rentStabilizedUnits?: string;
+  averageMarketRent?: string;
+  noi?: string;
+  recentRenovations?: string;
+  buyer?: string;
+  seller?: string;
+  propertyClass?: string;
+  amenities?: string;
+  zoning?: string;
+  taxInformation?: string;
+  buildingManager?: string;
+  occupancyRate?: string;
+  neighborhoodTrends?: string;
+  sourceConfidence?: string;
+  [key: string]: string | undefined; // Allow for additional fields
+}
+
 interface PropertySale {
   id: string;
   address: string;
@@ -37,7 +56,7 @@ const PropertyRecordModal: React.FC<PropertyRecordModalProps> = ({
 }) => {
   const [isEnriching, setIsEnriching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [extractedData, setExtractedData] = useState<{[key: string]: any} | null>(null);
+  const [extractedData, setExtractedData] = useState<ExtractedPropertyData | null>(null);
 
   // Format currency
   const formatCurrency = (value: number) => {
@@ -204,14 +223,131 @@ const PropertyRecordModal: React.FC<PropertyRecordModalProps> = ({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                     AI-Extracted Property Information
+                    {extractedData.sourceConfidence && (
+                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${extractedData.sourceConfidence.toLowerCase() === 'high' ? 'bg-green-100 text-green-800' : extractedData.sourceConfidence.toLowerCase() === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                        {extractedData.sourceConfidence} confidence
+                      </span>
+                    )}
                   </div>
                 </h4>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  {Object.entries(extractedData).map(([key, value]) => (
-                    <div key={key} className="col-span-1">
-                      <span className="font-medium">{key}:</span> {value || 'N/A'}
+                  {/* Financial Information */}
+                  {(extractedData.capRate || extractedData.noi) && (
+                    <div className="col-span-2 mt-1 mb-1">
+                      <h5 className="font-semibold text-blue-700 border-b border-blue-100 pb-1 mb-2">Financial Details</h5>
                     </div>
-                  ))}
+                  )}
+                  {extractedData.capRate && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Cap Rate:</span> {extractedData.capRate}
+                    </div>
+                  )}
+                  {extractedData.noi && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Net Operating Income:</span> {extractedData.noi}
+                    </div>
+                  )}
+                  
+                  {/* Rental Information */}
+                  {(extractedData.rentStabilizedUnits || extractedData.averageMarketRent || extractedData.occupancyRate) && (
+                    <div className="col-span-2 mt-1 mb-1">
+                      <h5 className="font-semibold text-blue-700 border-b border-blue-100 pb-1 mb-2">Rental Information</h5>
+                    </div>
+                  )}
+                  {extractedData.rentStabilizedUnits && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Rent Stabilized Units:</span> {extractedData.rentStabilizedUnits}
+                    </div>
+                  )}
+                  {extractedData.averageMarketRent && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Average Market Rent:</span> {extractedData.averageMarketRent}
+                    </div>
+                  )}
+                  {extractedData.occupancyRate && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Occupancy Rate:</span> {extractedData.occupancyRate}
+                    </div>
+                  )}
+                  
+                  {/* Building Information */}
+                  {(extractedData.recentRenovations || extractedData.propertyClass || extractedData.amenities || extractedData.zoning) && (
+                    <div className="col-span-2 mt-1 mb-1">
+                      <h5 className="font-semibold text-blue-700 border-b border-blue-100 pb-1 mb-2">Building Information</h5>
+                    </div>
+                  )}
+                  {extractedData.propertyClass && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Property Class:</span> {extractedData.propertyClass}
+                    </div>
+                  )}
+                  {extractedData.recentRenovations && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Recent Renovations:</span> {extractedData.recentRenovations}
+                    </div>
+                  )}
+                  {extractedData.amenities && (
+                    <div className="col-span-2">
+                      <span className="font-medium">Amenities:</span> {extractedData.amenities}
+                    </div>
+                  )}
+                  {extractedData.zoning && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Zoning:</span> {extractedData.zoning}
+                    </div>
+                  )}
+                  {extractedData.taxInformation && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Tax Information:</span> {extractedData.taxInformation}
+                    </div>
+                  )}
+                  
+                  {/* Transaction Information */}
+                  {(extractedData.buyer || extractedData.seller || extractedData.buildingManager) && (
+                    <div className="col-span-2 mt-1 mb-1">
+                      <h5 className="font-semibold text-blue-700 border-b border-blue-100 pb-1 mb-2">Transaction & Management</h5>
+                    </div>
+                  )}
+                  {extractedData.buyer && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Buyer:</span> {extractedData.buyer}
+                    </div>
+                  )}
+                  {extractedData.seller && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Seller:</span> {extractedData.seller}
+                    </div>
+                  )}
+                  {extractedData.buildingManager && (
+                    <div className="col-span-1">
+                      <span className="font-medium">Building Manager:</span> {extractedData.buildingManager}
+                    </div>
+                  )}
+                  
+                  {/* Neighborhood Information */}
+                  {extractedData.neighborhoodTrends && (
+                    <div className="col-span-2 mt-1 mb-1">
+                      <h5 className="font-semibold text-blue-700 border-b border-blue-100 pb-1 mb-2">Neighborhood</h5>
+                      <div>
+                        <span className="font-medium">Trends:</span> {extractedData.neighborhoodTrends}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Display any additional fields that weren't categorized */}
+                  {Object.entries(extractedData)
+                    .filter(([key]) => ![
+                      'capRate', 'rentStabilizedUnits', 'averageMarketRent', 'noi', 
+                      'recentRenovations', 'buyer', 'seller', 'propertyClass', 
+                      'amenities', 'zoning', 'taxInformation', 'buildingManager', 
+                      'occupancyRate', 'neighborhoodTrends', 'sourceConfidence'
+                    ].includes(key))
+                    .map(([key, value]) => (
+                      <div key={key} className="col-span-1">
+                        <span className="font-medium">{key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}:</span> {value}
+                      </div>
+                    ))
+                  }
                 </div>
               </div>
             )}
