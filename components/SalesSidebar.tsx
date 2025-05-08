@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import PropertyRecordModal from './PropertyRecordModal';
 
 interface PropertySale {
   id: string;
@@ -14,6 +15,7 @@ interface PropertySale {
   grossSqFt: number;
   saleDate: string | Date;
   location?: [number, number]; // [longitude, latitude]
+  isMainNeighborhood?: boolean;
 }
 
 interface SalesSummary {
@@ -44,6 +46,8 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<SalesSummary | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<PropertySale | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Fetch sales data when neighborhood changes
   useEffect(() => {
@@ -331,6 +335,19 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({
                       <div className="text-gray-500">Sale Date:</div>
                       <div className="text-gray-900">{formatDate(sale.saleDate)}</div>
                     </div>
+                    
+                    {/* View Record Button */}
+                    <div className="mt-3 flex justify-end">
+                      <button 
+                        onClick={() => {
+                          setSelectedProperty(sale);
+                          setIsModalOpen(true);
+                        }}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs"
+                      >
+                        View Record
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -338,6 +355,13 @@ const SalesSidebar: React.FC<SalesSidebarProps> = ({
           </div>
         </>
       )}
+      
+      {/* Property Record Modal */}
+      <PropertyRecordModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        property={selectedProperty}
+      />
     </div>
   );
 };

@@ -10,6 +10,7 @@
     "geocode-sales": "node scripts/geocode-sales.js"
   },
   "dependencies": {
+    "@headlessui/react": "^1.7.18",
     "@turf/turf": "^7.2.0",
     "axios": "^1.6.2",
     "mapbox-gl": "^2.15.0",
