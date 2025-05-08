@@ -11,6 +11,8 @@ A proof of concept web application that allows users to input a New York City ad
 * **Neighborhood Identification**: The application determines and highlights the neighborhood containing the address
 * **Property Visualization**: All properties within the identified neighborhood are displayed on an interactive map
 * **Property Details**: Click on any property to view its details in a popup
+* **Adjacent Neighborhoods**: View properties in adjacent neighborhoods as well as the main one
+* **AI-Powered Record Enrichment**: Use OpenAI's web search to find additional information about properties
 
 ## Tech Stack
 
@@ -18,6 +20,7 @@ A proof of concept web application that allows users to input a New York City ad
 * **Mapping**: Mapbox GL JS
 * **Backend**: Node.js with Next.js API Routes
 * **Data Processing**: Turf.js for spatial operations
+* **AI Integration**: OpenAI API with web search capability
 
 ## Getting Started
 
@@ -26,6 +29,7 @@ A proof of concept web application that allows users to input a New York City ad
 - Node.js 16.x or higher
 - npm or yarn package manager
 - A Mapbox account and access token
+- An OpenAI API key (for AI property record enrichment)
 
 ### Installation
 
@@ -42,9 +46,10 @@ A proof of concept web application that allows users to input a New York City ad
    yarn install
    ```
 
-3. Create a `.env.local` file and add your Mapbox access token
+3. Create a `.env.local` file and add your API keys
    ```
    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=your_mapbox_access_token_here
+   OPENAI_API_KEY=your_openai_api_key_here
    ```
 
 4. Download and process the rolling sales data
@@ -78,17 +83,24 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ### 2. Neighborhood Identification
 - Once an address is geocoded, the application identifies which neighborhood it falls within
-- Currently using simplified neighborhood boundaries (in a production version, this would use NYC's official NTA boundaries)
+- The application also identifies adjacent neighborhoods within a specified distance
 
 ### 3. Property Display
-- The application displays all properties within the identified neighborhood
-- Currently using mock property data (in a production version, this would use NYC's MapPLUTO dataset)
+- The application displays all properties within the identified neighborhood and adjacent neighborhoods
+- Properties are color-coded to distinguish between the main neighborhood and adjacent ones
 
 ### 4. Interactive Map
 - The map allows users to:
   - Click on properties to view details
   - Pan and zoom to explore the neighborhood
-  - See a clear boundary outline of the neighborhood
+  - See a clear boundary outline of the neighborhood and adjacent areas
+
+### 5. AI-Powered Record Enrichment
+- Each property in the sidebar has a "View Record" button
+- In the property record modal, users can click "Enrich Record with AI"
+- The application uses OpenAI's web search to find additional information about the property
+- AI extracts structured data such as cap rate, rent-stabilized units, and market rents
+- Search results include links to the original sources
 
 ## Data Sources
 
@@ -96,6 +108,28 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 * **NYC Department of Finance - Rolling Sales Data**: Real property sales transactions in NYC
   * Source: https://www.nyc.gov/site/finance/property/property-rolling-sales-data.page
   * Place Excel files in the `/data` directory
+* **Web Search Results**: Property details enriched through OpenAI's web search functionality
+
+## AI Integration
+
+This project demonstrates how AI can enhance the commercial real estate appraisal process:
+
+1. **Property Record Enrichment**:
+   - Uses OpenAI's web search capability to find information not present in the local database
+   - Extracts key data points like cap rates, rent stabilization status, and market rents
+   - Provides links to original sources for verification
+   - Demonstrates how AI can automate research that would normally take significant time
+
+2. **Automated Data Extraction**:
+   - Parses search results to extract structured data
+   - Presents findings in a clear, organized format
+   - Reduces manual data entry and ensures consistent categorization
+
+This approach allows appraisers to:
+- Save hours of research time
+- Access more comprehensive information
+- Make better-informed valuation decisions
+- Maintain transparency about information sources
 
 ## Development Plan
 
@@ -104,9 +138,9 @@ This project is being developed incrementally:
 1. ✅ Basic Map Display
 2. ✅ Address Input and Geocoding
 3. ✅ Neighborhood Boundary Identification
-4. ✅ Load and Display Property Data (using mock data)
-5. ⬜️ Interactive Property Details (Enhanced)
-6. ⬜️ Adjacent Neighborhoods (Optional)
+4. ✅ Load and Display Property Data
+5. ✅ Adjacent Neighborhoods Support
+6. ✅ AI-Powered Record Enrichment
 7. ⬜️ Performance Optimization
 
 ## Future Enhancements
@@ -116,6 +150,7 @@ This project is being developed incrementally:
 - Property comparison tool
 - Statistical analysis of neighborhood properties
 - Export/save functionality for research purposes
+- AI-powered valuation predictions
 
 ## Notes
 

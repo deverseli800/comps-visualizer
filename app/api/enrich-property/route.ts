@@ -1,64 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import OpenAI from 'openai';
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 // Types for web search results
 interface SearchResult {
   title: string;
   link: string;
   snippet: string;
-}
-
-// Mock function to simulate OpenAI web search API
-// In a real implementation, you would use the actual OpenAI web search API
-async function mockWebSearch(query: string): Promise<SearchResult[]> {
-  // Simulate API response time
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  
-  // Return mock search results based on the query
-  const mockResults: SearchResult[] = [
-    {
-      title: "Recent Sale: " + query.split(' ')[0] + " - PropertyShark",
-      link: "https://www.propertyshark.com/mason/Property/..." + Math.floor(Math.random() * 1000000),
-      snippet: "The property at " + query.split(' ')[0] + " was sold for $" + (Math.floor(Math.random() * 5) + 10) + "M in a transaction that closed last quarter. The building contains 40% rent-stabilized units with an average rent of $1,850 per month."
-    },
-    {
-      title: "StreetEasy: " + query.split(' ')[0] + " NYC Apartment Building",
-      link: "https://streeteasy.com/building/" + query.split(' ')[0].toLowerCase().replace(/\s/g, '-'),
-      snippet: "Building details: " + query.split(' ')[0] + " is a pre-war building with " + (Math.floor(Math.random() * 30) + 20) + " units, with a cap rate of " + (Math.random() * 2 + 3).toFixed(2) + "%. The property features elevator service and a part-time doorman."
-    },
-    {
-      title: "NYC Department of Housing Preservation & Development",
-      link: "https://www1.nyc.gov/site/hpd/about/building-info.page?address=" + encodeURIComponent(query.split(' ')[0]),
-      snippet: "HPD records show " + (Math.floor(Math.random() * 10) + 5) + " rent-stabilized units at this address. Building has " + (Math.floor(Math.random() * 3)) + " outstanding violations. Last renovation permit was issued in " + (2015 + Math.floor(Math.random() * 8)) + "."
-    },
-    {
-      title: "Real Estate Weekly: Major Transaction in " + query.split(' ')[1],
-      link: "https://rew-online.com/transaction/" + Math.floor(Math.random() * 10000),
-      snippet: "The sale of " + query.split(' ')[0] + " represents a significant transaction in the area. The property sold at a price per square foot of $" + (Math.floor(Math.random() * 400) + 600) + " with a capitalization rate of " + (Math.random() * 2 + 3).toFixed(2) + "%."
-    },
-    {
-      title: "ACRIS - NYC.gov - Property Records",
-      link: "https://a836-acris.nyc.gov/DS/DocumentSearch/DocumentDetail?doc_id=" + Math.floor(Math.random() * 100000000),
-      snippet: "Deed transfer record shows property at " + query.split(' ')[0] + " transferred on " + new Date().toLocaleDateString() + ". Transaction includes " + (Math.random() > 0.5 ? "commercial" : "retail") + " space on ground floor generating additional revenue of $" + (Math.floor(Math.random() * 200) + 100) + "K annually."
-    }
-  ];
-  
-  return mockResults;
-}
-
-// Function to extract structured data from search results using AI
-// In a real implementation, you would use OpenAI's API to extract this information
-function extractDataFromSearchResults(results: SearchResult[]): {[key: string]: string} {
-  // Mock extracted data
-  return {
-    "Cap Rate": (Math.random() * 2 + 3).toFixed(2) + "%",
-    "Rent Stabilized Units": (Math.floor(Math.random() * 20) + 5) + " units (" + (Math.floor(Math.random() * 40) + 20) + "%)",
-    "Average Market Rent": "$" + (Math.floor(Math.random() * 1000) + 2000) + " per month",
-    "Last Renovation": (2010 + Math.floor(Math.random() * 12)).toString(),
-    "NOI": "$" + (Math.floor(Math.random() * 500) + 400) + "K",
-    "Ground Floor Commercial": "$" + (Math.floor(Math.random() * 200) + 100) + "K annual revenue",
-    "Building Amenities": "Laundry, Storage" + (Math.random() > 0.5 ? ", Roof Deck" : ""),
-    "Property Manager": ["Compass", "Douglas Elliman", "Related", "RCR Management"][Math.floor(Math.random() * 4)]
-  };
 }
 
 export async function POST(request: NextRequest) {
@@ -72,16 +24,118 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Build search query with property details
-    const searchQuery = `${property.address} NYC ${property.neighborhood} sale ${property.price} apartment building cap rate rent stabilized`;
+    // Build search query with property details for best results
+    const searchQuery = `${property.address} NYC ${property.neighborhood} apartment building sale ${new Date(property.saleDate).getFullYear()} real estate transaction cap rate rent stabilized`;
     
-    // In a real implementation, you would call OpenAI's API
-    // For this demo, we'll use a mock function
-    const searchResults = await mockWebSearch(searchQuery);
+    console.log('Search query:', searchQuery);
     
-    // Extract structured data from the search results
-    const extractedData = extractDataFromSearchResults(searchResults);
+    // Use the OpenAI Responses API with web_search tool
+    const response = await openai.responses.create({
+      model: "gpt-4o", // Or another supported model
+      input: `You are a commercial real estate researcher. Find information about this property sale: 
+        - Address: ${property.address}
+        - Neighborhood: ${property.neighborhood}
+        - Sale price: $${property.price.toLocaleString()}
+        - Sale date: ${new Date(property.saleDate).toLocaleDateString()}
+        - Units: ${property.units}
+        - Year built: ${property.yearBuilt}
+        
+        Search for information about this property sale. Extract specific data points about:
+        1. Cap rate for this sale (if available)
+        2. Number of rent stabilized units
+        3. Average market rents in the building or area
+        4. Any recent renovations mentioned
+        5. Net Operating Income (NOI) if mentioned
+        6. Any information about the buyer and seller
+        7. Any other relevant financial or property information
+        
+        Present the findings in a structured format and include links to the sources.`,
+      tools: [
+        {
+          type: "web_search"
+        }
+      ],
+      temperature: 0.2, // Lower temperature for more factual responses
+    });
     
+    // Process the response to extract search results and structured data
+    const searchResults: SearchResult[] = [];
+    let extractedData: {[key: string]: string} = {};
+    
+    // Process the response to get search results and extracted data
+    const output = response.output;
+    if (output) {
+      for (const item of output) {
+        if (item.type === 'message') {
+          // Extract URLs from annotations in the message content
+          const messageContent = item.content;
+          for (const content of messageContent) {
+            if (content.type === 'output_text' && content.annotations) {
+              // Extract URLs from annotations
+              for (const annotation of content.annotations) {
+                if (annotation.type === 'url_citation') {
+                  searchResults.push({
+                    title: annotation.title || 'Source',
+                    link: annotation.url,
+                    snippet: 'Click link to view source content'
+                  });
+                }
+              }
+              
+              // Process text to extract structured data
+              // This is a simple approach - for production, a more sophisticated
+              // parsing approach would be better
+              const text = content.text;
+              if (text) {
+                // Extract cap rate info
+                const capRateMatch = text.match(/cap rate[:\s]*([^%\n]+)%/i);
+                if (capRateMatch && capRateMatch[1]) {
+                  extractedData['Cap Rate'] = capRateMatch[1].trim() + '%';
+                }
+                
+                // Extract rent stabilized units info
+                const rentStabMatch = text.match(/rent stabilized[:\s]*([^,\n]+)/i);
+                if (rentStabMatch && rentStabMatch[1]) {
+                  extractedData['Rent Stabilized Units'] = rentStabMatch[1].trim();
+                }
+                
+                // Extract average rent info
+                const avgRentMatch = text.match(/average(?:\s+market)?\s+rent[:\s]*([^,\n]+)/i);
+                if (avgRentMatch && avgRentMatch[1]) {
+                  extractedData['Average Market Rent'] = avgRentMatch[1].trim();
+                }
+                
+                // Extract NOI info
+                const noiMatch = text.match(/NOI[:\s]*([^,\n]+)/i);
+                if (noiMatch && noiMatch[1]) {
+                  extractedData['NOI'] = noiMatch[1].trim();
+                }
+                
+                // Extract renovation info
+                const renovationMatch = text.match(/renovation[s]?[:\s]*([^,\n.]+)/i);
+                if (renovationMatch && renovationMatch[1]) {
+                  extractedData['Recent Renovations'] = renovationMatch[1].trim();
+                }
+                
+                // Extract buyer info
+                const buyerMatch = text.match(/buyer[:\s]*([^,\n.]+)/i);
+                if (buyerMatch && buyerMatch[1]) {
+                  extractedData['Buyer'] = buyerMatch[1].trim();
+                }
+                
+                // Extract seller info
+                const sellerMatch = text.match(/seller[:\s]*([^,\n.]+)/i);
+                if (sellerMatch && sellerMatch[1]) {
+                  extractedData['Seller'] = sellerMatch[1].trim();
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Return both the search results and the extracted data
     return NextResponse.json({
       searchResults,
       extractedData

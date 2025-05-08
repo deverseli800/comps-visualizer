@@ -72,11 +72,25 @@ const PropertyRecordModal: React.FC<PropertyRecordModalProps> = ({
         })
       });
       
-      if (!response.ok) throw new Error('Failed to enrich property data');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to enrich property data');
+      }
       
       const data = await response.json();
-      setSearchResults(data.searchResults || []);
-      setExtractedData(data.extractedData || null);
+      
+      // Handle the response data
+      if (data.searchResults && data.searchResults.length > 0) {
+        setSearchResults(data.searchResults);
+      } else {
+        console.log('No search results found');
+      }
+      
+      if (data.extractedData && Object.keys(data.extractedData).length > 0) {
+        setExtractedData(data.extractedData);
+      } else {
+        console.log('No extracted data found');
+      }
     } catch (error) {
       console.error('Error enriching property data:', error);
     } finally {
@@ -182,9 +196,16 @@ const PropertyRecordModal: React.FC<PropertyRecordModalProps> = ({
             </div>
             
             {/* AI-Extracted Data (if available) */}
-            {extractedData && (
+            {extractedData && Object.keys(extractedData).length > 0 && (
               <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <h4 className="font-medium text-blue-800 mb-3">AI-Extracted Information</h4>
+                <h4 className="font-medium text-blue-800 mb-3">
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    AI-Extracted Property Information
+                  </div>
+                </h4>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   {Object.entries(extractedData).map(([key, value]) => (
                     <div key={key} className="col-span-1">
@@ -226,7 +247,14 @@ const PropertyRecordModal: React.FC<PropertyRecordModalProps> = ({
             {/* Search Results */}
             {searchResults.length > 0 && (
               <div className="border-t border-gray-200 pt-6">
-                <h4 className="font-medium mb-4">Web Search Results</h4>
+                <h4 className="font-medium mb-4">
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Web Search Results ({searchResults.length})
+                  </div>
+                </h4>
                 <div className="space-y-4">
                   {searchResults.map((result, index) => (
                     <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -238,7 +266,9 @@ const PropertyRecordModal: React.FC<PropertyRecordModalProps> = ({
                       >
                         {result.title}
                       </a>
-                      <p className="text-sm text-gray-600">{result.snippet}</p>
+                      {result.snippet && (
+                        <p className="text-sm text-gray-600">{result.snippet}</p>
+                      )}
                       <div className="mt-1 text-xs text-gray-400 truncate">
                         <span>{result.link}</span>
                       </div>
