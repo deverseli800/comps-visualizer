@@ -2,15 +2,15 @@ const fs = require('fs');
 const path = require('path');
 
 // Load the input GeoJSON
-const inputPath = path.join(__dirname, '../data/2020 Neighborhood Tabulation Areas (NTAs)_20250507.geojson'); // rename your file accordingly
-const outputPath = path.join(__dirname, 'manhattan_neighborhoods.geojson');
+const inputPath = path.join(__dirname, '../data/nta_acs_economic.geojson'); // rename your file accordingly
+const outputPath = path.join(__dirname, 'nta_acs_economic_manhattan.geojson');
 
 const rawData = fs.readFileSync(inputPath, 'utf-8');
 const geojson = JSON.parse(rawData);
 
 // Filter for Manhattan neighborhoods
 const filteredFeatures = geojson.features.filter(
-    feature => feature.properties.boroname === 'Manhattan'
+    feature => feature.properties.BoroName === 'Manhattan'
 );
 
 // Write the filtered GeoJSON
