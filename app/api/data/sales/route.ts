@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       filteredFeatures = filteredFeatures.filter((feature: any) => {
         const featureNeighborhood = feature.properties.neighborhood?.toLowerCase() || '';
         const searchNeighborhood = neighborhood.toLowerCase();
-        return featureNeighborhood === searchNeighborhood;
+        return searchNeighborhood.includes(featureNeighborhood);
       });
 
       console.log(`Found ${filteredFeatures.length} properties in ${neighborhood}`);
