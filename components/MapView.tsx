@@ -60,6 +60,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   const [showSidebar, setShowSidebar] = useState<boolean>(false);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState<boolean>(false);
   const [showIncomeLayer, setShowIncomeLayer] = useState<boolean>(false);
+  const [incomeDataLoaded, setIncomeDataLoaded] = useState<boolean>(false);
 
   // Map initialization
   useEffect(() => {
@@ -99,80 +100,94 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
     };
   }, []);
 
-  // Add/remove income layer when showIncomeLayer changes
+  // Setup income layer as soon as map is initialized
   useEffect(() => {
-    if (!map.current || !mapInitialized) return;
+    if (!map.current || !mapInitialized || incomeDataLoaded) return;
     
     const sourceId = 'income-source';
+    
+    // Add income data source - we do this regardless of whether the layer is visible
+    fetch('/data/nta_acs_economic.geojson')
+      .then(response => response.json())
+      .then(data => {
+        if (map.current) {
+          // Add source
+          map.current.addSource(sourceId, {
+            type: 'geojson',
+            data: data
+          });
+          
+          // Add layer (initially hidden)
+          map.current.addLayer({
+            id: 'income-layer',
+            type: 'fill',
+            source: sourceId,
+            paint: {
+              'fill-color': [
+                'interpolate',
+                ['linear'],
+                ['get', 'MHI'], // Median Household Income field
+                30000, '#d1eeea', // Lower income - lighter color
+                60000, '#a8dbd9',
+                90000, '#85c4c9',
+                120000, '#68abb8',
+                150000, '#4f90a6',
+                180000, '#3b738f',
+                210000, '#2a5674' // Higher income - darker color
+              ],
+              'fill-opacity': 0.7,
+              'fill-outline-color': '#000000'
+            },
+            layout: {
+              visibility: 'none' // Initially hidden
+            }
+          });
+          
+          setIncomeDataLoaded(true);
+          console.log('Income data layer initialized');
+        }
+      })
+      .catch(error => {
+        console.error("Error loading income data:", error);
+      });
+  }, [mapInitialized, incomeDataLoaded]);
+
+  // Toggle income layer visibility
+  useEffect(() => {
+    if (!map.current || !mapInitialized || !incomeDataLoaded) return;
+    
     const layerId = 'income-layer';
     
-    if (showIncomeLayer) {
-      // Add source if it doesn't exist
-      if (!map.current.getSource(sourceId)) {
-        // Load the income data from the GeoJSON file
-        fetch('/data/nta_acs_economic.geojson')
-          .then(response => response.json())
-          .then(data => {
-            if (map.current) {
-              // Add source
-              map.current.addSource(sourceId, {
-                type: 'geojson',
-                data: data
-              });
-              
-              // Add layer
-              map.current.addLayer({
-                id: layerId,
-                type: 'fill',
-                source: sourceId,
-                paint: {
-                  'fill-color': [
-                    'interpolate',
-                    ['linear'],
-                    ['get', 'MHI'], // Median Household Income field
-                    30000, '#d1eeea', // Lower income - lighter color
-                    60000, '#a8dbd9',
-                    90000, '#85c4c9',
-                    120000, '#68abb8',
-                    150000, '#4f90a6',
-                    180000, '#3b738f',
-                    210000, '#2a5674' // Higher income - darker color
-                  ],
-                  'fill-opacity': 0.7,
-                  'fill-outline-color': '#000000'
-                },
-                layout: {
-                  visibility: 'visible'
-                }
-              }, 'neighborhood-boundary-0'); // Add the layer below the neighborhoods for better visibility
-            }
-          })
-          .catch(error => {
-            console.error("Error loading income data:", error);
-          });
-      } else if (map.current.getLayer(layerId)) {
-        // If the source exists but the layer was removed, add it back
+    if (map.current.getLayer(layerId)) {
+      if (showIncomeLayer) {
         map.current.setLayoutProperty(layerId, 'visibility', 'visible');
-      }
-    } else {
-      // Hide layer if it exists
-      if (map.current.getLayer(layerId)) {
+        console.log('Income layer visible');
+      } else {
         map.current.setLayoutProperty(layerId, 'visibility', 'none');
+        console.log('Income layer hidden');
       }
     }
+  }, [showIncomeLayer, mapInitialized, incomeDataLoaded]);
+
+  // Make sure neighborhood layers are above income layer
+  useEffect(() => {
+    if (!map.current || !mapInitialized || !incomeDataLoaded || neighborhoods.length === 0) return;
     
-    return () => {
-      // Clean up on unmount
-      if (map.current) {
-        if (map.current.getLayer(layerId)) {
-          map.current.removeLayer(layerId);
-        }
-        if (map.current.getSource(sourceId)) {
-          map.current.removeSource(sourceId);
+    const incomeLayerId = 'income-layer';
+    
+    // Move all neighborhood layers above the income layer
+    neighborhoods.forEach((_, index) => {
+      const neighborhoodLayerId = `neighborhood-boundary-${index}`;
+      const outlineId = `neighborhood-outline-${index}`;
+      
+      if (map.current && map.current.getLayer(neighborhoodLayerId)) {
+        map.current.moveLayer(neighborhoodLayerId, incomeLayerId);
+        if (map.current.getLayer(outlineId)) {
+          map.current.moveLayer(outlineId);
         }
       }
-    };
-  }, [map, mapInitialized, showIncomeLayer]);
+    });
+  }, [neighborhoods, incomeDataLoaded, mapInitialized]);
 
   // Function to update neighborhood boundaries
   const updateNeighborhoodBoundaries = (map: mapboxgl.Map, neighborhoods: NeighborhoodInfo[]) => {
@@ -230,6 +245,12 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
             'line-dasharray': isMain ? [1, 0] : [2, 1] // Solid for main, dashed for adjacent
           }
         });
+        
+        // Make sure neighborhood layers are above income layer
+        if (incomeDataLoaded) {
+          map.moveLayer(layerId, 'income-layer');
+          map.moveLayer(outlineId);
+        }
         
         console.log(`Added ${isMain ? 'main' : 'adjacent'} neighborhood: ${neighborhood.name}`);
       } catch (error) {
