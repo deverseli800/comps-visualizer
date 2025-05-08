@@ -59,6 +59,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showSidebar, setShowSidebar] = useState<boolean>(false);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState<boolean>(false);
+  const [showIncomeLayer, setShowIncomeLayer] = useState<boolean>(false);
 
   // Map initialization
   useEffect(() => {
@@ -97,6 +98,81 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
       }
     };
   }, []);
+
+  // Add/remove income layer when showIncomeLayer changes
+  useEffect(() => {
+    if (!map.current || !mapInitialized) return;
+    
+    const sourceId = 'income-source';
+    const layerId = 'income-layer';
+    
+    if (showIncomeLayer) {
+      // Add source if it doesn't exist
+      if (!map.current.getSource(sourceId)) {
+        // Load the income data from the GeoJSON file
+        fetch('/data/nta_acs_economic.geojson')
+          .then(response => response.json())
+          .then(data => {
+            if (map.current) {
+              // Add source
+              map.current.addSource(sourceId, {
+                type: 'geojson',
+                data: data
+              });
+              
+              // Add layer
+              map.current.addLayer({
+                id: layerId,
+                type: 'fill',
+                source: sourceId,
+                paint: {
+                  'fill-color': [
+                    'interpolate',
+                    ['linear'],
+                    ['get', 'MHI'], // Median Household Income field
+                    30000, '#d1eeea', // Lower income - lighter color
+                    60000, '#a8dbd9',
+                    90000, '#85c4c9',
+                    120000, '#68abb8',
+                    150000, '#4f90a6',
+                    180000, '#3b738f',
+                    210000, '#2a5674' // Higher income - darker color
+                  ],
+                  'fill-opacity': 0.7,
+                  'fill-outline-color': '#000000'
+                },
+                layout: {
+                  visibility: 'visible'
+                }
+              }, 'neighborhood-boundary-0'); // Add the layer below the neighborhoods for better visibility
+            }
+          })
+          .catch(error => {
+            console.error("Error loading income data:", error);
+          });
+      } else if (map.current.getLayer(layerId)) {
+        // If the source exists but the layer was removed, add it back
+        map.current.setLayoutProperty(layerId, 'visibility', 'visible');
+      }
+    } else {
+      // Hide layer if it exists
+      if (map.current.getLayer(layerId)) {
+        map.current.setLayoutProperty(layerId, 'visibility', 'none');
+      }
+    }
+    
+    return () => {
+      // Clean up on unmount
+      if (map.current) {
+        if (map.current.getLayer(layerId)) {
+          map.current.removeLayer(layerId);
+        }
+        if (map.current.getSource(sourceId)) {
+          map.current.removeSource(sourceId);
+        }
+      }
+    };
+  }, [map, mapInitialized, showIncomeLayer]);
 
   // Function to update neighborhood boundaries
   const updateNeighborhoodBoundaries = (map: mapboxgl.Map, neighborhoods: NeighborhoodInfo[]) => {
@@ -213,6 +289,12 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
           const mainName = mainNeighborhoodData?.properties?.ntaname || mainNeighborhoodData?.properties?.name || null;
           setMainNeighborhood(mainName);
           
+          // Extract adjacent neighborhood names for the sales filter
+          const adjacentNames = adjacentNeighborhoodsData.map(
+            (feature: any) => feature.properties?.ntaname || feature.properties?.name
+          ).filter(Boolean);
+          setAdjacentNeighborhoodNames(adjacentNames);
+          
           // Create the neighborhoods array with main and adjacent
           const neighborhoodsArray: NeighborhoodInfo[] = [
             {
@@ -226,12 +308,6 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
               isMain: false
             }))
           ];
-          
-          // Extract adjacent neighborhood names for the sales filter
-          const adjacentNames = adjacentNeighborhoodsData.map(
-            (feature: any) => feature.properties?.ntaname || feature.properties?.name
-          ).filter(Boolean);
-          setAdjacentNeighborhoodNames(adjacentNames);
           
           setNeighborhoods(neighborhoodsArray);
           
@@ -331,6 +407,31 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
             )}
           </svg>
         </button>
+      )}
+      
+      {/* Income Layer Toggle */}
+      <div className="absolute top-4 left-4 z-20 bg-white rounded-lg shadow-md p-2">
+        <label className="flex items-center space-x-2 text-sm cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showIncomeLayer}
+            onChange={(e) => setShowIncomeLayer(e.target.checked)}
+            className="form-checkbox h-4 w-4 text-blue-600"
+          />
+          <span>Show Income Layer</span>
+        </label>
+      </div>
+      
+      {/* Income Layer Legend (show only when layer is active) */}
+      {showIncomeLayer && (
+        <div className="absolute bottom-24 left-4 z-20 bg-white rounded-lg shadow-md p-2">
+          <h3 className="text-xs font-bold mb-2">Median Household Income</h3>
+          <div className="w-full h-4 bg-gradient-to-r from-[#d1eeea] to-[#2a5674] mb-1"></div>
+          <div className="flex justify-between text-xs">
+            <span>$30k</span>
+            <span>$210k+</span>
+          </div>
+        </div>
       )}
       
       {/* Map Container */}
