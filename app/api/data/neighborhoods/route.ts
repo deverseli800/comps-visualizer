@@ -18,7 +18,7 @@ export async function GET() {
       console.error('[API] [NEIGHBORHOODS] Error reading data directory:', readDirError);
     }
     
-    const filePath = path.join(process.cwd(), 'data', '2020 Neighborhood Tabulation Areas (NTAs)_20250507.geojson');
+    const filePath = path.join(process.cwd(), 'data', '.js');
     console.log('[API] [NEIGHBORHOODS] Attempting to read file:', filePath);
     
     // Check if file exists

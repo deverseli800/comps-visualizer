@@ -4,8 +4,9 @@ import {
   buffer,
   distance,
   centroid,
-    point,
-  booleanPointInPolygon
+  point,
+  booleanPointInPolygon,
+  featureCollection
 } from '@turf/turf';
 
 import fs from 'fs';
@@ -33,7 +34,7 @@ export async function getNYCNeighborhoods() {
     // In a Node.js environment (API routes), load from the file system
     else {
       console.log('[Lib] Loading NYC neighborhood data from file system');
-      const filePath = path.join(process.cwd(), 'data', '2020 Neighborhood Tabulation Areas (NTAs)_20250507.geojson');
+      const filePath = path.join(process.cwd(), 'data', 'manhattan_neighborhoods.geojson');
       const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       return data;
     }
@@ -71,27 +72,131 @@ export async function findNeighborhood(lng: number, lat: number) {
   return null;
 }
 
-// Find adjacent neighborhoods to a given neighborhood - improved approach
+/**
+ * Find neighborhoods within a specific distance of the subject neighborhood
+ * This implementation uses multiple approaches to ensure reliable proximity detection.
+ * 
+ * @param subject - The subject neighborhood feature
+ * @param proximityMiles - The proximity radius in miles (default: 1)
+ * @returns Array of neighborhood features within the specified proximity
+ */
 export async function findAdjacentNeighborhoods(
-    subject: Feature
+    subject: Feature,
+    proximityMiles: number = 1
 ): Promise<Feature[]> {
-  if (!subject) return [];
+  if (!subject) {
+    console.error('[Lib] No subject neighborhood provided');
+    return [];
+  }
 
-  // 1) Load everything
-  const all = (await getNYCNeighborhoods()).features;
+  // Get the subject neighborhood info for logging
+  const subjectName = subject.properties.ntaname || subject.properties.name || 'Unknown';
+  const subjectCode = subject.properties.ntacode || subject.properties.id || 'Unknown';
+  
+  console.log(`[Lib] Finding neighborhoods within ${proximityMiles} mile(s) of ${subjectName} (${subjectCode})`);
+  
+  // 1) Load all neighborhood features
+  const allNeighborhoods = (await getNYCNeighborhoods()).features;
+  console.log(`[Lib] Loaded ${allNeighborhoods.length} total neighborhoods`);
 
-  // 2) Make a 1-mile buffer around your subject neighborhood
-  const mileBuffer = buffer(subject, 1, { units: 'miles' });
+  // Helper function to safely get neighborhood centroid
+  const safeGetCentroid = (feature: Feature) => {
+    try {
+      return centroid(feature);
+    } catch (error) {
+      console.error(`[Lib] Error calculating centroid:`, error);
+      // If centroid fails, create a point from the first coordinate of the first polygon
+      try {
+        if (feature.geometry.type === 'MultiPolygon') {
+          const firstCoord = feature.geometry.coordinates[0][0][0];
+          return point(firstCoord);
+        } else if (feature.geometry.type === 'Polygon') {
+          const firstCoord = feature.geometry.coordinates[0][0];
+          return point(firstCoord);
+        }
+      } catch (e) {
+        console.error(`[Lib] Failed to extract point from geometry:`, e);
+      }
+      return null;
+    }
+  };
 
-  // 3) Filter out your subject + keep any that touch that buffer
-  return all.filter((candidate) => {
-    const codeA = subject.properties.ntacode || subject.properties.id;
-    const codeB = candidate.properties.ntacode || candidate.properties.id;
-    if (codeA === codeB) return false;
+  // 2) Calculate centroid of subject neighborhood for distance calculations
+  const subjectCentroid = safeGetCentroid(subject);
+  if (!subjectCentroid) {
+    console.error('[Lib] Could not calculate centroid for subject neighborhood');
+    return [];
+  }
 
-    // “any part within 1 mile” test
-    return booleanIntersects(mileBuffer, candidate);
+  // 3) Create a buffer around the subject for intersection tests
+  let bufferAroundSubject;
+  try {
+    bufferAroundSubject = buffer(subject, proximityMiles, { units: 'miles' });
+  } catch (error) {
+    console.error(`[Lib] Error creating buffer:`, error);
+    console.log('[Lib] Falling back to centroid-based proximity only');
+    bufferAroundSubject = null;
+  }
+
+  // 4) Find nearby neighborhoods using multiple methods
+  const nearbyNeighborhoods = allNeighborhoods.filter((candidate) => {
+    // Skip if this is the subject neighborhood
+    const candidateCode = candidate.properties.ntacode || candidate.properties.id;
+    const candidateName = candidate.properties.ntaname || candidate.properties.name || 'Unknown';
+    
+    if (candidateCode === subjectCode) {
+      return false;
+    }
+    
+    try {
+      // Method 1: Check if the candidate intersects with the buffer (if buffer exists)
+      if (bufferAroundSubject) {
+        const intersects = booleanIntersects(bufferAroundSubject, candidate);
+        if (intersects) {
+          console.log(`[Lib] ${candidateName} intersects with the buffer around ${subjectName}`);
+          return true;
+        }
+      }
+      
+      // Method 2: Calculate distance between centroids
+      const candidateCentroid = safeGetCentroid(candidate);
+      if (candidateCentroid && subjectCentroid) {
+        const dist = distance(subjectCentroid, candidateCentroid, { units: 'miles' });
+        if (dist <= proximityMiles) {
+          console.log(`[Lib] ${candidateName} centroid is within ${dist.toFixed(2)} miles of ${subjectName} centroid`);
+          return true;
+        }
+      }
+      
+      // Method 3: Try boundary-based methods
+      // Check if neighborhoods directly touch (are adjacent)
+      try {
+        if (booleanTouches(subject, candidate)) {
+          console.log(`[Lib] ${candidateName} directly touches ${subjectName}`);
+          return true;
+        }
+      } catch (error) {
+        // If touches check fails, ignore and continue with other methods
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`[Lib] Error checking proximity for ${candidateName}:`, error);
+      return false;
+    }
   });
+  
+  // Log the results for debugging
+  console.log(`[Lib] Found ${nearbyNeighborhoods.length} neighborhoods within ${proximityMiles} mile(s) of ${subjectName}`);
+  
+  const nearbyNames = nearbyNeighborhoods
+    .map(n => n.properties.ntaname || n.properties.name)
+    .filter(Boolean)
+    .join(', ');
+    
+  console.log(`[Lib] Nearby neighborhoods: ${nearbyNames || 'None'}`);
+  
+  return nearbyNeighborhoods;
 }
 
 // Get all neighborhoods in a specific borough
