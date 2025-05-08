@@ -82,7 +82,7 @@ export async function findNeighborhood(lng: number, lat: number) {
  */
 export async function findAdjacentNeighborhoods(
     subject: Feature,
-    proximityMiles: number = 1
+    proximityMiles: number = 0.5
 ): Promise<Feature[]> {
   if (!subject) {
     console.error('[Lib] No subject neighborhood provided');
