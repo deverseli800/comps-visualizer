@@ -23,6 +23,7 @@ interface SalesLayerProps {
   selectedNeighborhood?: string;
   adjacentNeighborhoods?: string[];
   onSaleSelect?: (sale: PropertySale) => void;
+  onViewRecord?: (sale: PropertySale) => void;
 }
 
 const SalesLayer: React.FC<SalesLayerProps> = ({ 
@@ -30,7 +31,8 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
   mapInitialized, 
   selectedNeighborhood,
   adjacentNeighborhoods = [],
-  onSaleSelect
+  onSaleSelect,
+  onViewRecord
 }) => {
   const [salesData, setSalesData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -224,14 +226,48 @@ const SalesLayer: React.FC<SalesLayerProps> = ({
               <span class="font-medium">Building Size:</span> ${props.grossSqFt?.toLocaleString() || 'N/A'} sq ft
             </div>
           </div>
+          <div class="mt-3 text-center">
+            <button id="view-record-btn-${props.id}" class="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded">
+              View Record
+            </button>
+          </div>
         </div>
       `;
       
       // Create popup
-      new mapboxgl.Popup()
+      const popup = new mapboxgl.Popup()
         .setLngLat(coordinates)
         .setHTML(popupContent)
         .addTo(map);
+      
+      // After popup is added to the map, attach click event to the View Record button
+      setTimeout(() => {
+        const viewRecordBtn = document.getElementById(`view-record-btn-${props.id}`);
+        if (viewRecordBtn && onViewRecord) {
+          viewRecordBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            popup.remove(); // Close the popup
+            // Call the handler with the sale object
+            onViewRecord({
+              id: props.id,
+              address: props.address,
+              neighborhood: props.neighborhood,
+              buildingClass: props.buildingClass,
+              price: props.price,
+              units: props.units,
+              residentialUnits: props.residentialUnits,
+              commercialUnits: props.commercialUnits,
+              yearBuilt: props.yearBuilt,
+              landSqFt: props.landSqFt,
+              grossSqFt: props.grossSqFt,
+              saleDate: props.saleDate,
+              location: coordinates,
+              isMainNeighborhood: props.isMainNeighborhood
+            });
+          });
+        }
+      }, 100); // Small delay to ensure the DOM has been updated
       
       // Call onSaleSelect if provided
       if (onSaleSelect) {

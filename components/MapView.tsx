@@ -3,6 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import SalesLayer from './SalesLayer';
 import SalesSidebar from './SalesSidebar';
+import PropertyRecordModal from './PropertyRecordModal';
 
 // Using environment variable for Mapbox token
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
@@ -57,6 +58,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
   const [selectedSale, setSelectedSale] = useState<PropertySale | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showSidebar, setShowSidebar] = useState<boolean>(false);
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState<boolean>(false);
 
   // Map initialization
   useEffect(() => {
@@ -295,6 +297,12 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
     // Additional handling can be added here if needed
   };
 
+  // Handler for opening the property record modal
+  const handleViewRecord = (sale: PropertySale) => {
+    setSelectedSale(sale);
+    setIsRecordModalOpen(true);
+  };
+  
   // Toggle sidebar visibility
   const toggleSidebar = () => {
     setShowSidebar(!showSidebar);
@@ -349,6 +357,7 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
           selectedNeighborhood={mainNeighborhood}
           adjacentNeighborhoods={adjacentNeighborhoodNames}
           onSaleSelect={handleSaleSelect}
+          onViewRecord={handleViewRecord}
         />
       )}
       
@@ -358,6 +367,14 @@ const MapView: React.FC<MapViewProps> = ({ viewport, setViewport, selectedAddres
         adjacentNeighborhoods={adjacentNeighborhoodNames}
         isOpen={showSidebar && !!mainNeighborhood}
         onClose={() => setShowSidebar(false)}
+        onViewRecord={handleViewRecord}
+      />
+      
+      {/* Property Record Modal */}
+      <PropertyRecordModal
+        isOpen={isRecordModalOpen}
+        onClose={() => setIsRecordModalOpen(false)}
+        property={selectedSale}
       />
       
       {/* Neighborhood Info Panel - show neighborhoods list */}
